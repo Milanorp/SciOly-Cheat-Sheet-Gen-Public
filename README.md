@@ -1,0 +1,110 @@
+# 🏆 Science Olympiad Autonomous Cheat Sheet Generator
+
+An advanced, AI-powered toolkit designed to help Science Olympiad competitors automatically generate hyper-optimized, incredibly dense, rulebook-accurate cheat sheets. 
+
+This project uses **LangChain**, **LangGraph**, and **Google's Gemini 2.5 Flash** to perform data extraction from past tests, build a local Retrieval-Augmented Generation (RAG) database from the official rulebook, and synthesize the information into a printable, maximum-density format.
+
+---
+
+## ⚙️ Prerequisites
+
+1. **Python 3.10+** installed.
+2. **Microsoft Edge** (Required for the final automatic PDF generation step).
+3. **Google Gemini API Key:** You can get one for free at [Google AI Studio](https://aistudio.google.com/app/apikey).
+
+## 🚀 Setup Instructions
+
+1. **Clone the repository and enter the directory:**
+   ```bash
+   git clone https://github.com/Milanorp/SciOly_Cheat_Sheet_Generator.git
+   cd SciOly_Cheat_Sheet_Generator
+   ```
+
+2. **Set up a Virtual Environment:**
+   ```bash
+   python -m venv venv
+   # On Windows:
+   .\venv\Scripts\activate
+   # On Mac/Linux:
+   source venv/bin/activate
+   ```
+
+3. **Install Dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Configure your API Key:**
+   Create a file named `.env` in the root of the project and add your Gemini API key:
+   ```env
+   GOOGLE_API_KEY=your_api_key_here
+   ```
+
+---
+
+## 🛠️ Step 1: Feed the AI Data
+
+Before generating a cheat sheet, you need to provide the AI with the rulebook and past tests.
+
+1. **The Rulebook (RAG Database):**
+   - Place the official Science Olympiad rulebook PDF in the root directory and name it `sample_rules.pdf` (or update `extract.py` with your file name).
+   - Run `python extract.py` to convert the PDF to a readable Markdown format (`extracted_rules.md`).
+   - Run `python build_db.py` to chunk the rules and build your local Chroma Vector Database (`scioly_db/`).
+
+2. **Past Tests (Frequency Analysis):**
+   - Create a folder named `raw_tests/` in the root directory.
+   - Drop as many past test PDFs for your event into this folder as you want.
+   - Run `python 0_test_cruncher.py`. This script will read every test and generate a `test_frequency_map.json` leaderboard of the most commonly tested concepts and traps.
+
+---
+
+## 🏭 Step 2: The 5-Phase Generation Pipeline
+
+Once the AI has the rules and the past test data, you can generate your cheat sheet by running these scripts in order.
+
+### Phase 1: The Architect
+```bash
+python 1_cheat_sheet_architect.py
+```
+- **What it does:** Reads the past test frequency map and strategically plans a 50-target layout designed to perfectly fill a standard 8.5x11 page (front and back).
+- **Output:** `cheat_sheet_blueprint.json`
+
+### Phase 1.5: Upload Rulebook Cache (Optimization)
+```bash
+python 1.5_setup_cache.py
+```
+- **What it does:** Uploads your extracted rulebook to Gemini's secure Context Caching server for 24 hours. This drastically speeds up generation and reduces API token costs by 75% for all subsequent script runs!
+- **Output:** `cache_info.json`
+
+### Phase 2: The Research Dispatcher
+```bash
+python 2_research_dispatcher.py
+```
+- **What it does:** The heavy lifter. It takes the 50 targets, expands them into detailed checklists, queries your local rulebook database AND the high-speed Cache for exact formulas and constraints, and drafts ~130 words of highly technical notes for each target.
+- **Note on API Limits:** This script tracks your API tokens in `token_usage_log.json`. It is incredibly fast on a **Paid/Prepay Google Cloud tier**. If you are on the Free tier, you may encounter `429 Rate Limit` errors. *The script automatically saves its state, so if it crashes, just run it again to pick up exactly where it left off!*
+- **Output:** `raw_research_notes.json`
+
+### Phase 3: The AI Compiler (Extreme Density)
+```bash
+python 3_cheat_sheet_compiler.py
+```
+- **What it does:** It takes the disjointed research notes and synthesizes them into massive, continuous blocks of pure text. It strips out bullet points, line breaks, bolding, and headers to achieve "Extreme Density" formatting.
+- **Output:** `Final_Cheat_Sheet.md`
+
+### Phase 4: The PDF Formatter
+```bash
+python 4_format_for_print.py
+```
+- **What it does:** Converts the Markdown into HTML, injects custom Science Olympiad CSS (5.5pt font, zero margins), and automatically uses a headless Microsoft Edge browser to render and export it.
+- **Output:** `Final_Cheat_Sheet.pdf` (Ready to print!)
+
+---
+
+## 🤖 Bonus: The Autonomous Graph Agent
+
+If you just want to ask complex questions without generating a full cheat sheet, use the interactive terminal agent!
+
+```bash
+python graph_agent.py
+```
+This agent uses LangGraph to autonomously decide when to search your local rulebook database, when to search live academic papers on ArXiv, and when to search the web to answer complex build or testing questions.
