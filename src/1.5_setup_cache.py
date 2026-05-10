@@ -5,7 +5,7 @@ from google import genai
 from google.genai import types
 
 print("\n" + "="*60)
-print("📦 PHASE 1.5: UPLOADING RULEBOOK TO GEMINI CACHE 📦")
+print("PHASE 1.5: UPLOADING RULEBOOK TO GEMINI CACHE")
 print("="*60)
 
 load_dotenv()
@@ -40,7 +40,7 @@ try:
     # Save cache name to a local file so Dispatcher can use it
     with open("cache_info.json", "w", encoding="utf-8") as f:
         json.dump({"cache_name": cache.name}, f)
-    print("\n🎉 SUCCESS! Saved cache info to 'cache_info.json'. You can now run the Dispatcher!")
+    print("\nSUCCESS! Saved cache info to 'cache_info.json'. You can now run the Dispatcher!")
 
 except Exception as e:
     print(f"❌ Error creating cache: {e}")

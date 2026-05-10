@@ -96,7 +96,7 @@ def search_arxiv(query: str) -> str:
 @tool
 def request_search_clearance(scientific_domain: str) -> str:
     """You MUST use this tool before conducting ANY external research."""
-    print(f"\n[🛡️ GATEKEEPER] AI requesting clearance for: '{scientific_domain}'")
+    print(f"\n[🛡GATEKEEPER] AI requesting clearance for: '{scientific_domain}'")
     domain = scientific_domain.lower()
     if "bio" in domain or "anatomy" in domain or "disease" in domain:
         return "CLEARANCE GRANTED: You should prioritize 'search_arxiv' for advanced biology, using 'search_academic_biology' ONLY as a backup."
@@ -122,13 +122,13 @@ def search_academic_biology(query: str) -> str:
 @tool
 def search_physics_and_engineering(query: str) -> str:
     """Use ONLY as a backup if ArXiv fails."""
-    print(f"\n[⚙️ SNIPER TOOL] Searching Engineering Sites for: '{query}'")
+    print(f"\n[SNIPER TOOL] Searching Engineering Sites for: '{query}'")
     return ddg.run(f"{query} 'physics' OR 'engineering' site:.edu OR site:.gov")
 
 @tool
 def submit_final_answer(draft_answer: str, academic_level: str) -> str:
     """You MUST use this tool to evaluate your final answer BEFORE talking to the user."""
-    print(f"\n[⚖️ SELF-GRADER] AI submitted draft at level: '{academic_level}'")
+    print(f"\n[⚖SELF-GRADER] AI submitted draft at level: '{academic_level}'")
     
     if academic_level == "Graduate Research":
         print("[🛑 REJECTED] Draft is too complex. Forcing rewrite.")
@@ -182,11 +182,11 @@ app = workflow.compile()
 # =====================================================================
 if __name__ == "__main__":
     print("\n" + "="*60)
-    print("🏆 ADVANCED SCIENCE OLYMPIAD AI TERMINAL 🏆")
+    print("ADVANCED SCIENCE OLYMPIAD AI TERMINAL")
     print("="*60)
 
     # 1. Ask for the Event First
-    current_event = input("\n🎯 What Science Olympiad event are you studying for? ")
+    current_event = input("\nWhat Science Olympiad event are you studying for? ")
     
     # 2. Ask the Question Second
     user_question = input("❓ What is your question? ")

@@ -3,7 +3,7 @@ import sys
 import os
 
 print("\n" + "="*70)
-print("🚀 SCIENCE OLYMPIAD AUTONOMOUS CHEAT SHEET GENERATOR 🚀")
+print("SCIENCE OLYMPIAD AUTONOMOUS CHEAT SHEET GENERATOR")
 print("="*70)
 print("Initializing the 5-Phase Pipeline...")
 
@@ -45,6 +45,6 @@ for phase_name, script_path in scripts:
         sys.exit(1)
 
 print("\n" + "="*70)
-print("🎉 PIPELINE COMPLETE! 🎉")
+print("PIPELINE COMPLETE!")
 print("Check 'Final_Cheat_Sheet.pdf' for your max-density competition sheet!")
 print("="*70)

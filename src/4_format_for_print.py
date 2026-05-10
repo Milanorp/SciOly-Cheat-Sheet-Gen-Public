@@ -3,7 +3,7 @@ from markdown_it import MarkdownIt
 import subprocess
 
 print("\n" + "="*60)
-print("📄 PHASE 4: CHEAT SHEET FORMATTER (EXTREME DENSITY) 📄")
+print("PHASE 4: CHEAT SHEET FORMATTER (EXTREME DENSITY)")
 print("="*60)
 
 INPUT_FILE = "Final_Cheat_Sheet.md"
@@ -88,7 +88,7 @@ try:
     print(f"✅ SUCCESS! Created ultra-dense layout: '{OUTPUT_FILE}'")
     
     # --- AUTOMATIC PDF CONVERSION ---
-    print("🚀 Automatically converting HTML to PDF using browser headless engine...")
+    print("Automatically converting HTML to PDF using browser headless engine...")
     pdf_output = "Final_Cheat_Sheet.pdf"
     edge_path = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
     
@@ -102,9 +102,9 @@ try:
             f"file:///{os.path.abspath(OUTPUT_FILE)}"
         ]
         subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        print(f"🎉 SUCCESS! Final ready-to-print PDF saved to: '{pdf_output}'")
+        print(f"SUCCESS! Final ready-to-print PDF saved to: '{pdf_output}'")
     else:
-        print("⚠️ Microsoft Edge not found. Could not auto-generate PDF. Please open the HTML file and print manually.")
+        print("Microsoft Edge not found. Could not auto-generate PDF. Please open the HTML file and print manually.")
 
 except Exception as e:
     print(f"❌ Error creating printable file: {e}")

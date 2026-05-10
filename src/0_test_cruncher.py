@@ -12,7 +12,7 @@ from langchain_community.document_loaders import PyPDFLoader
 # 0. SETUP & LOAD SECRETS
 # ==========================================
 print("\n" + "="*60)
-print("⚙️ PHASE 0: PAST TEST FREQUENCY CRUNCHER (CHECKPOINT EDITION) ⚙️")
+print("PHASE 0: PAST TEST FREQUENCY CRUNCHER (CHECKPOINT EDITION)")
 print("="*60)
 
 load_dotenv()
@@ -41,13 +41,13 @@ PROGRESS_FILE = "cruncher_save_state.json"
 
 if not os.path.exists(TESTS_FOLDER):
     os.makedirs(TESTS_FOLDER)
-    print(f"📁 Created '{TESTS_FOLDER}' folder. Drop your PDF test files in there and run again.")
+    print(f"Created '{TESTS_FOLDER}' folder. Drop your PDF test files in there and run again.")
     sys.exit()
 
 test_files = [f for f in os.listdir(TESTS_FOLDER) if f.endswith('.pdf')]
 
 if not test_files:
-    print(f"⚠️ No .pdf files found in '{TESTS_FOLDER}'. Add your tests!")
+    print(f"No .pdf files found in '{TESTS_FOLDER}'. Add your tests!")
     sys.exit()
 
 # Initialize our master lists
@@ -57,7 +57,7 @@ processed_files = []
 
 # Load previous progress if it exists
 if os.path.exists(PROGRESS_FILE):
-    print(f"💾 Found save file! Loading previous progress from '{PROGRESS_FILE}'...")
+    print(f"Found save file! Loading previous progress from '{PROGRESS_FILE}'...")
     with open(PROGRESS_FILE, "r", encoding="utf-8") as f:
         save_data = json.load(f)
         master_concept_list = save_data.get("concepts", [])
@@ -78,7 +78,7 @@ for filename in test_files:
         continue 
 
     filepath = os.path.join(TESTS_FOLDER, filename)
-    print(f"   🔍 Scanning PDF: {filename}...")
+    print(f"   Scanning PDF: {filename}...")
     
     try:
         loader = PyPDFLoader(filepath)
@@ -106,7 +106,7 @@ for filename in test_files:
         # Look for rate limit keywords in the error message
         if "429" in error_msg or "quota" in error_msg or "exhausted" in error_msg:
             print(f"\n🚨 API LIMIT HIT (429)! Google is cutting us off for today.")
-            print(f"💾 Don't worry, your progress is safely saved. Just run this exact script again tomorrow!")
+            print(f"Don't worry, your progress is safely saved. Just run this exact script again tomorrow!")
             sys.exit(0) # Stop the script cleanly
         else:
             print(f"   ❌ Failed to parse {filename}: {e}")
@@ -115,7 +115,7 @@ for filename in test_files:
 # 4. BUILD THE FINAL LEADERBOARD
 # ==========================================
 # This only runs if the loop finishes completely without hitting a 429
-print("\n🧮 All files processed! Tallying final frequencies...")
+print("\nAll files processed! Tallying final frequencies...")
 concept_counts = Counter(master_concept_list)
 trap_counts = Counter(master_trap_list)
 

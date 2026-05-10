@@ -28,9 +28,9 @@ if os.path.exists("cache_info.json"):
     try:
         with open("cache_info.json", "r", encoding="utf-8") as f:
             CACHE_NAME = json.load(f).get("cache_name")
-        print(f"📦 Loaded Gemini Context Cache: {CACHE_NAME}")
+        print(f"Loaded Gemini Context Cache: {CACHE_NAME}")
     except Exception as e:
-        print(f"⚠️ Could not load context cache: {e}")
+        print(f"Could not load context cache: {e}")
 
 # 1. Load the Blueprint
 try:
@@ -54,13 +54,13 @@ if os.path.exists("raw_research_notes.json"):
     try:
         with open("raw_research_notes.json", "r", encoding="utf-8") as f:
             generated_notes = json.load(f)
-        print("💾 Found previous save state! Resuming research...")
+        print("Found previous save state! Resuming research...")
     except Exception as e:
-        print(f"⚠️ Could not load previous save state: {e}. Starting fresh.")
+        print(f"Could not load previous save state: {e}. Starting fresh.")
 
 # 2. Iterate through the Blueprint
 for section_name, micro_topics in blueprint.items():
-    print(f"\n📁 Processing Section: {section_name}")
+    print(f"\nProcessing Section: {section_name}")
     if section_name not in generated_notes:
         generated_notes[section_name] = []
     
@@ -68,10 +68,10 @@ for section_name, micro_topics in blueprint.items():
         # Check if this topic has already been processed in the current section
         already_processed = any(item.get("original_target") == topic for item in generated_notes[section_name])
         if already_processed:
-            print(f"\n   ⏭️ Skipping (Already done): {topic[:60]}...")
+            print(f"\n  Skipping (Already done): {topic[:60]}...")
             continue
 
-        print(f"\n   🔍 Target: {topic[:60]}...")
+        print(f"\n   Target: {topic[:60]}...")
         
         # ==========================================
         # STEP 1: THE EXPANSION PHASE
@@ -106,7 +106,7 @@ for section_name, micro_topics in blueprint.items():
             if not rag_context.strip():
                  rag_context = "No specific rules found in the local database for this exact topic."
         except Exception as e:
-             print(f"      ⚠️ Database search failed: {e}")
+             print(f"     Database search failed: {e}")
              rag_context = "Database search failed."
         
         # ==========================================

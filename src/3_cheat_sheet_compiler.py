@@ -6,7 +6,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 print("\n" + "="*60)
-print("🖨️  PHASE 3: THE AI CHEAT SHEET COMPILER & SYNTHESIZER 🖨️")
+print("PHASE 3: THE AI CHEAT SHEET COMPILER & SYNTHESIZER")
 print("="*60)
 
 load_dotenv()
@@ -33,8 +33,8 @@ total_words = 0
 # 3. The Synthesis Loop
 for section_name, items in notes.items():
     # Remove emojis and underscores
-    clean_section_name = section_name.replace("_", " ").replace("⚡", "").strip()
-    print(f"✍️ Synthesizing Section: {clean_section_name}...")
+    clean_section_name = section_name.replace("_", " ").replace("", "").strip()
+    print(f"Synthesizing Section: {clean_section_name}...")
     
     # We are removing the H2 headers completely to maximize space.
     # The text will flow continuously into the next section.
@@ -84,6 +84,6 @@ try:
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         f.write(markdown_output.strip())
     print(f"\n✅ SUCCESS! Final synthesized cheat sheet saved to '{OUTPUT_FILE}'!")
-    print(f"📊 Approximate Word Count: {total_words} words.")
+    print(f"Approximate Word Count: {total_words} words.")
 except Exception as e:
      print(f"❌ Error saving final file: {e}")

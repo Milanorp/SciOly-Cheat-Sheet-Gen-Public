@@ -49,7 +49,7 @@ if ai_msg.tool_calls:
             
             # If the AI hallucinates a dictionary again, we catch it manually
             if isinstance(args.get("search_query"), dict):
-                print("⚠️ [WARNING] The AI hallucinated the JSON schema. Forcing it to use a fallback query...")
+                print("[WARNING] The AI hallucinated the JSON schema. Forcing it to use a fallback query...")
                 args["search_query"] = "Chemistry event equipment allowed materials"
                 
             tool_output = search_scioly_rules.invoke(args)
@@ -57,7 +57,7 @@ if ai_msg.tool_calls:
             
         except Exception as e:
             # If it completely crashes, we don't kill the program. We feed the error back to the AI!
-            print(f"⚠️ [ERROR CATCHED]: {e}")
+            print(f"[ERROR CATCHED]: {e}")
             messages.append(ToolMessage(content="Error: You formatted your tool input incorrectly. Please try again with a plain string.", tool_call_id=tool_call["id"]))
         # ----------------------
         
