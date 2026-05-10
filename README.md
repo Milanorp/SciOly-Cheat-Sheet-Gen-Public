@@ -58,45 +58,23 @@ Before generating a cheat sheet, you need to provide the AI with the rulebook an
 
 ---
 
-## 🏭 Step 2: The 5-Phase Generation Pipeline
+## 🏭 Step 2: The One-Click Generation Pipeline
 
-Once the AI has the rules and the past test data, you can generate your cheat sheet by running these scripts in order.
+Once the AI has the rules and the past test data, generating the ultimate cheat sheet is as easy as running a single command:
 
-### Phase 1: The Architect
 ```bash
-python 1_cheat_sheet_architect.py
+python main.py
 ```
-- **What it does:** Reads the past test frequency map and strategically plans a 50-target layout designed to perfectly fill a standard 8.5x11 page (front and back).
-- **Output:** `cheat_sheet_blueprint.json`
 
-### Phase 1.5: Upload Rulebook Cache (Optimization)
-```bash
-python 1.5_setup_cache.py
-```
-- **What it does:** Uploads your extracted rulebook to Gemini's secure Context Caching server for 24 hours. This drastically speeds up generation and reduces API token costs by 75% for all subsequent script runs!
-- **Output:** `cache_info.json`
+The orchestrator script will automatically run the 5-phase generation pipeline in sequence and stream the output directly to your terminal. 
 
-### Phase 2: The Research Dispatcher
-```bash
-python 2_research_dispatcher.py
-```
-- **What it does:** The heavy lifter. It takes the 50 targets, expands them into detailed checklists, queries your local rulebook database AND the high-speed Cache for exact formulas and constraints, and drafts ~130 words of highly technical notes for each target.
-- **Note on API Limits:** This script tracks your API tokens in `token_usage_log.json`. It is incredibly fast on a **Paid/Prepay Google Cloud tier**. If you are on the Free tier, you may encounter `429 Rate Limit` errors. *The script automatically saves its state, so if it crashes, just run it again to pick up exactly where it left off!*
-- **Output:** `raw_research_notes.json`
+### What happens under the hood:
 
-### Phase 3: The AI Compiler (Extreme Density)
-```bash
-python 3_cheat_sheet_compiler.py
-```
-- **What it does:** It takes the disjointed research notes and synthesizes them into massive, continuous blocks of pure text. It strips out bullet points, line breaks, bolding, and headers to achieve "Extreme Density" formatting.
-- **Output:** `Final_Cheat_Sheet.md`
-
-### Phase 4: The PDF Formatter
-```bash
-python 4_format_for_print.py
-```
-- **What it does:** Converts the Markdown into HTML, injects custom Science Olympiad CSS (5.5pt font, zero margins), and automatically uses a headless Microsoft Edge browser to render and export it.
-- **Output:** `Final_Cheat_Sheet.pdf` (Ready to print!)
+*   **Phase 1 (The Architect):** Reads the past test frequency map and strategically plans a 50-target layout designed to perfectly fill a standard 8.5x11 page (front and back).
+*   **Phase 1.5 (Upload Rulebook Cache):** Uploads your extracted rulebook to Gemini's secure Context Caching server for 24 hours, drastically speeding up generation and reducing API token costs by 75%.
+*   **Phase 2 (The Research Dispatcher):** The heavy lifter. It takes the 50 targets, expands them into detailed checklists, queries your local rulebook database AND the high-speed Cache, and drafts ~130 words of highly technical notes for each target. *(Note: If you hit a `429 Rate Limit` on the Free tier, the script automatically saves its state! Just run `python main.py` again to resume.)*
+*   **Phase 3 (The AI Compiler):** Takes the disjointed research notes and synthesizes them into massive, continuous blocks of pure text, stripping out formatting to achieve "Extreme Density".
+*   **Phase 4 (The PDF Formatter):** Injects custom Science Olympiad CSS (5.5pt font, zero margins), and automatically uses a headless Microsoft Edge browser to render and export the final `Final_Cheat_Sheet.pdf`.
 
 ---
 
