@@ -1,4 +1,4 @@
-# 🏆 Science Olympiad Autonomous Cheat Sheet Generator
+# Science Olympiad Autonomous Cheat Sheet Generator
 
 An advanced, AI-powered toolkit designed to help Science Olympiad competitors automatically generate hyper-optimized, incredibly dense, rulebook-accurate cheat sheets. 
 
@@ -6,13 +6,13 @@ This project uses **LangChain**, **LangGraph**, and **Google's Gemini 2.5 Flash*
 
 ---
 
-## ⚙️ Prerequisites
+## Prerequisites
 
 1. **Python 3.10+** installed.
 2. **Microsoft Edge** (Required for the final automatic PDF generation step).
 3. **Google Gemini API Key:** You can get one for free at [Google AI Studio](https://aistudio.google.com/app/apikey).
 
-## 🚀 Setup Instructions
+## Setup Instructions
 
 1. **Clone the repository and enter the directory:**
    ```bash
@@ -42,7 +42,7 @@ This project uses **LangChain**, **LangGraph**, and **Google's Gemini 2.5 Flash*
 
 ---
 
-## 🛠️ Step 1: Feed the AI Data
+## Step 1: Feed the AI Data
 
 Before generating a cheat sheet, you need to provide the AI with the rulebook and past tests.
 
@@ -58,7 +58,7 @@ Before generating a cheat sheet, you need to provide the AI with the rulebook an
 
 ---
 
-## 🏭 Step 2: The One-Click Generation Pipeline
+## Step 2: The One-Click Generation Pipeline
 
 Once the AI has the rules and the past test data, generating the ultimate cheat sheet is as easy as running a single command:
 
@@ -78,7 +78,7 @@ The orchestrator script will automatically run the 5-phase generation pipeline i
 
 ---
 
-## 🤖 Bonus: The Autonomous Graph Agent
+## Bonus: The Autonomous Graph Agent
 
 If you just want to ask complex questions without generating a full cheat sheet, use the interactive terminal agent!
 
