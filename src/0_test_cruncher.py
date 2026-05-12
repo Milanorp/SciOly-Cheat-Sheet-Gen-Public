@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_community.document_loaders import PyPDFLoader
+from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader
 
 # ==========================================
 # 0. SETUP & LOAD SECRETS
@@ -41,13 +41,13 @@ PROGRESS_FILE = "cruncher_save_state.json"
 
 if not os.path.exists(TESTS_FOLDER):
     os.makedirs(TESTS_FOLDER)
-    print(f"Created '{TESTS_FOLDER}' folder. Drop your PDF test files in there and run again.")
+    print(f"Created '{TESTS_FOLDER}' folder. Drop your .pdf or .docx test files in there and run again.")
     sys.exit()
 
-test_files = [f for f in os.listdir(TESTS_FOLDER) if f.endswith('.pdf')]
+test_files = [f for f in os.listdir(TESTS_FOLDER) if f.endswith('.pdf') or f.endswith('.docx')]
 
 if not test_files:
-    print(f"No .pdf files found in '{TESTS_FOLDER}'. Add your tests!")
+    print(f"No .pdf or .docx files found in '{TESTS_FOLDER}'. Add your tests!")
     sys.exit()
 
 # Initialize our master lists
@@ -67,10 +67,10 @@ if os.path.exists(PROGRESS_FILE):
     files_left = len(test_files) - len(processed_files)
     print(f"✅ Resuming... {len(processed_files)} files already crunched. {files_left} left to go!\n")
 else:
-    print(f"📚 Found {len(test_files)} PDF tests. Starting fresh crunch...\n")
+    print(f"📚 Found {len(test_files)} tests. Starting fresh crunch...\n")
 
 # ==========================================
-# 3. THE PDF PROCESSING LOOP
+# 3. THE TEST PROCESSING LOOP
 # ==========================================
 for filename in test_files:
     # SKIP files we already processed yesterday!
@@ -78,10 +78,16 @@ for filename in test_files:
         continue 
 
     filepath = os.path.join(TESTS_FOLDER, filename)
-    print(f"   Scanning PDF: {filename}...")
+    print(f"   Scanning file: {filename}...")
     
     try:
-        loader = PyPDFLoader(filepath)
+        if filename.endswith('.pdf'):
+            loader = PyPDFLoader(filepath)
+        elif filename.endswith('.docx'):
+            loader = Docx2txtLoader(filepath)
+        else:
+            continue
+            
         pages = loader.load()
         test_content = "\n".join([page.page_content for page in pages])
         test_content = test_content[:100000] 
@@ -127,4 +133,4 @@ frequency_report = {
 with open("test_frequency_map.json", "w", encoding="utf-8") as f:
     json.dump(frequency_report, f, indent=4)
 
-print("✅ SUCCESS! Master PDF frequency leaderboard saved to 'test_frequency_map.json'.")
+print("✅ SUCCESS! Master frequency leaderboard saved to 'test_frequency_map.json'.")

@@ -5,7 +5,7 @@ import os
 print("\n" + "="*70)
 print("SCIENCE OLYMPIAD AUTONOMOUS CHEAT SHEET GENERATOR")
 print("="*70)
-print("Initializing the 5-Phase Pipeline...")
+print("Initializing the 6-Phase Pipeline...")
 
 # Ensure we are running from the root directory but calling scripts in src/
 # We add src/ to PYTHONPATH so the scripts can easily import token_tracker
@@ -13,6 +13,7 @@ env = os.environ.copy()
 env["PYTHONPATH"] = os.path.abspath("src") + os.pathsep + env.get("PYTHONPATH", "")
 
 scripts = [
+    ("Phase 0: The Test Cruncher", "src/0_test_cruncher.py"),
     ("Phase 1: The Architect", "src/1_cheat_sheet_architect.py"),
     ("Phase 1.5: Upload Rulebook Cache", "src/1.5_setup_cache.py"),
     ("Phase 2: The Research Dispatcher", "src/2_research_dispatcher.py"),

@@ -4,17 +4,49 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_chroma import Chroma
 
 # ==========================================
 # 0. SETUP & LOAD SECRETS
 # ==========================================
 print("\n" + "="*60)
-print("ADAPTIVE CHEAT SHEET ARCHITECT 3.0 (DATA-DRIVEN)")
+print("ADAPTIVE CHEAT SHEET ARCHITECT 3.0 (DUAL-INPUT)")
 print("="*60)
 
 load_dotenv()
 
 EVENT_NAME = input("\nWhat Science Olympiad event are you building a cheat sheet for? ")
+
+# Save the event name for later phases
+with open("event_name.txt", "w", encoding="utf-8") as f:
+    f.write(EVENT_NAME)
+
+# --- THE RULEBOOK INJECTOR ---
+print(f"\nFetching official rules for '{EVENT_NAME}' from the database...")
+official_rules_text = ""
+try:
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
+    vectorstore = Chroma(persist_directory="./scioly_db", embedding_function=embeddings)
+    
+    # Search the database for the rules (first try with metadata filter, then fallback)
+    try:
+        rule_docs = vectorstore.similarity_search(EVENT_NAME, k=5, filter={"Event": EVENT_NAME.title()})
+    except:
+        rule_docs = []
+        
+    if not rule_docs:
+        rule_docs = vectorstore.similarity_search(f"{EVENT_NAME} rules", k=5)
+        
+    official_rules_text = "\n\n".join([doc.page_content for doc in rule_docs])
+    if not official_rules_text.strip():
+         official_rules_text = "No official rules found in the database. Rely on general knowledge for this event."
+         print("⚠️ No rules found in DB. Relying on baseline knowledge.")
+    else:
+         print("✅ Successfully retrieved official rules from database!")
+except Exception as e:
+    print(f"⚠️ Warning: Could not load local database for rules. Details: {e}")
+    official_rules_text = "Database not accessible. Rely on general knowledge."
 
 # --- THE LEADERBOARD INJECTOR ---
 test_context = ""
@@ -22,9 +54,9 @@ try:
     with open("test_frequency_map.json", "r", encoding="utf-8") as f:
         frequency_data = json.load(f)
         test_context = json.dumps(frequency_data, indent=2)
-    print("Found Frequency Leaderboard! Architect is using hyper-optimized test data.")
+    print("✅ Found Frequency Leaderboard! Architect is using hyper-optimized test data.")
 except FileNotFoundError:
-    print("No 'test_frequency_map.json' found. Proceeding with baseline AI knowledge.")
+    print("⚠️ No 'test_frequency_map.json' found. Proceeding with baseline AI knowledge.")
     test_context = "No specific test frequency data provided. Rely on standard national-level Science Olympiad meta."
 
 print(f"\nWaking up the Architect to isolate the top 50 max-density targets for: {EVENT_NAME}...")
@@ -40,15 +72,15 @@ llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.1, max_retr
 # ==========================================
 class Section(BaseModel):
     section_name: str = Field(
-        description="The exact name of the cheat sheet block based on the prompt's structural mandate."
+        description="A dynamically generated name for this section based on the event's rules and core topics."
     )
     micro_topics: list[str] = Field(
-        description="Exactly 10 hyper-specific search targets. Target must be complex enough to generate a 130-word response (e.g., ask for the fact, disease application, and trap)."
+        description="Exactly 10 hyper-specific search targets. Targets must be complex enough to generate a 130-word response (e.g., asking for facts, formulas, edge cases, and test traps)."
     )
 
 class CheatSheetBlueprint(BaseModel):
     event_analysis: str = Field(
-        description="A 2-sentence analysis of the absolute highest-yield concepts based on the provided frequency leaderboard."
+        description="A 2-sentence analysis of the absolute highest-yield concepts based on the provided rules and frequency leaderboard."
     )
     sections: list[Section] = Field(
         description="Exactly 5 major sections to perfectly map to a 50-target, 6500-word physical cheat sheet layout."
@@ -59,45 +91,45 @@ structured_llm = llm.with_structured_output(CheatSheetBlueprint)
 # ==========================================
 # 2. THE BLUEPRINT MASTER PROMPT
 # ==========================================
-architect_prompt = SystemMessage(content=f"""You are an elite Science Olympiad National Head Coach for the event: {EVENT_NAME}.
+prompt_text = f"""You are an elite Science Olympiad National Head Coach for the event: {EVENT_NAME}.
 You are designing the blueprint for an ultra-dense, competition-dominating cheat sheet.
 
 YOUR ONLY JOB IS TO BE THE PLANNER. 
 Do not write the actual notes or formulas. You are generating the specific targets that a secondary AI research agent will look up later.
 
+I am providing you with two critical pieces of data:
+
+1. THE OFFICIAL RULES:
+{official_rules_text}
+
+2. PAST TEST FREQUENCY LEADERBOARD:
+{test_context}
+
 THE MAX DENSITY MATH:
 We have space for exactly 50 targets (5 sections of 10 targets each). The secondary AI will write exactly 130 words per target. 
-Your targets must be incredibly "meaty" and detailed. Do not just ask for a basic fact; ask for the fact, the disease application, the exact equations, AND the test trap in the same target string.
+Your targets must be incredibly "meaty" and detailed. Do not just ask for a basic fact; ask for the fact, the specific applications, the exact equations, AND the test trap in the same target string.
 
-CRITICAL CONSTRAINTS:
-1. MAXIMIZE YIELD: Space is maximized. Base your targets entirely on the highest-ranking concepts from the provided frequency leaderboard, but explore them with extreme depth.
-2. HYPER-SPECIFICITY: The research agent needs exact instructions. 
+CRITICAL CONSTRAINTS & MANDATES:
+1. DYNAMIC SECTIONS: You MUST generate exactly 5 sections. You must dynamically determine the 5 most appropriate section titles based on the official rules. For example, if it's a lab event, include a 'Lab Techniques' section. If it's a biology event, include an 'Anatomy' section.
+2. RULE MANDATE: You MUST ensure that every specific item, formula, chemical, or organism explicitly listed in the Official Rules gets its own dedicated target.
+3. FREQUENCY MANDATE: You MUST prioritize the topics and traps listed in the Past Test Frequency data for the remaining targets to maximize competition yield.
+4. HYPER-SPECIFICITY: The research agent needs exact instructions. 
    - BAD TARGET: "Friction concepts"
    - GOOD TARGET: "The exact formulas for static and kinetic friction, the derivation of mu from an inclined plane angle, and the trap of confusing mass with normal force when calculating acceleration."
+"""
 
-THE ELITE STRUCTURAL MANDATE (You MUST generate exactly these 5 sections):
-1. NORMAL VALUES & CORE MATH (Critical baseline stats, ranges, or core formulas)
-2. RAPID COMPARISON TABLES (Side-by-side differences of highly tested concepts)
-3. LABELED DIAGRAM BANK & ID STRATEGIES (Specific structures the secondary AI needs to find images/IDs for)
-4. DISEASE CONNECTIONS & PATHOPHYSIOLOGY (Applied physiology, machine errors, or specific conditions)
-5. RAPID LOGIC RULES & TRAPS ("If X -> Then Y" logic and high-yield student mistakes)
-
-PAST TEST FREQUENCY LEADERBOARD:
-Here is the exact frequency of concepts and traps extracted from past tests. 
-You MUST base your 50 targets heavily on the highest-ranking concepts in this list.
-{test_context}
-""")
+architect_prompt = SystemMessage(content=prompt_text)
 
 messages = [
     architect_prompt, 
-    HumanMessage(content=f"Generate the highly constrained 50-topic max-density blueprint for {EVENT_NAME} based on the leaderboard.")
+    HumanMessage(content=f"Generate the highly constrained 50-topic max-density blueprint for {EVENT_NAME} based on the rules and leaderboard.")
 ]
 
 # ==========================================
 # 3. GENERATE AND SAVE
 # ==========================================
 try:
-    print("🧠 Architect is analyzing the leaderboard and calculating physical space...")
+    print("🧠 Architect is analyzing the rules, leaderboard, and calculating physical space...")
     blueprint = structured_llm.invoke(messages)
     
     print(f"\nMeta Analysis: {blueprint.event_analysis}\n")

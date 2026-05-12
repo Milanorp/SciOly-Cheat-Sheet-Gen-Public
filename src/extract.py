@@ -1,7 +1,7 @@
 import pymupdf4llm
 
 # 1. Point the tool at your specific PDF
-pdf_path = "sample_rules.pdf"
+pdf_path = r"sample_rules.pdf"
 
 # 2. Convert the entire document to Markdown
 print(f"Extracting {pdf_path}... this might take a few seconds.")

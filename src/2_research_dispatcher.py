@@ -4,8 +4,7 @@ import time
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from langchain_chroma import Chroma 
+from graph_agent import app
 
 print("\n" + "="*60)
 print("🧠 PHASE 2: THE RESEARCH DISPATCHER (EXPAND & RAG) 🧠")
@@ -13,24 +12,12 @@ print("="*60)
 
 load_dotenv()
 
-# 0. Load the Database
-print("Loading Local Vector Database...")
+# Read the event name from Phase 1
 try:
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
-    vectorstore = Chroma(persist_directory="./scioly_db", embedding_function=embeddings)
-except Exception as e:
-    print(f"❌ Error loading database. Did you run 'build_db.py' first? Details: {e}")
-    exit(1)
-
-# 0.5 Load the Cache
-CACHE_NAME = None
-if os.path.exists("cache_info.json"):
-    try:
-        with open("cache_info.json", "r", encoding="utf-8") as f:
-            CACHE_NAME = json.load(f).get("cache_name")
-        print(f"Loaded Gemini Context Cache: {CACHE_NAME}")
-    except Exception as e:
-        print(f"Could not load context cache: {e}")
+    with open("event_name.txt", "r", encoding="utf-8") as f:
+        EVENT_NAME = f.read().strip()
+except FileNotFoundError:
+    EVENT_NAME = "Science Olympiad"
 
 # 1. Load the Blueprint
 try:
@@ -43,9 +30,6 @@ except FileNotFoundError:
 
 from token_tracker import TokenTrackerCallback
 
-# Use temperature 0.2 for slight creativity in expansion, but strictness in facts
-# max_retries=5 tells LangChain to automatically pause and try again if it hits a 429 error!
-# We attach our new TokenTrackerCallback so it "listens" to every API call!
 tracker = TokenTrackerCallback(script_name="2_research_dispatcher")
 llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.2, max_retries=5, callbacks=[tracker])
 
@@ -65,7 +49,7 @@ for section_name, micro_topics in blueprint.items():
         generated_notes[section_name] = []
     
     for topic in micro_topics:
-        # Check if this topic has already been processed in the current section
+        # Check if this topic has already been processed
         already_processed = any(item.get("original_target") == topic for item in generated_notes[section_name])
         if already_processed:
             print(f"\n  Skipping (Already done): {topic[:60]}...")
@@ -90,90 +74,61 @@ for section_name, micro_topics in blueprint.items():
         
         try:
             expanded_requirements = llm.invoke([expander_prompt, expansion_msg]).content
-            print(f"      [Expanded] -> Ready. Querying DB...")
+            print(f"      [Expanded] -> Ready. Dispatching to Graph Agent...")
         except Exception as e:
              print(f"      ❌ Error during expansion: {e}")
-             continue # Skip to the next target if this one fails
+             continue 
         
         # ==========================================
-        # STEP 2: RAG SEARCH USING EXPANDED TEXT
+        # STEP 2: GRAPH AGENT RAG
         # ==========================================
-        # Search the DB using the EXPANDED text for better semantic matching. Increase k to 6 for more depth.
-        try:
-            db_results = vectorstore.similarity_search(expanded_requirements, k=6)
-            # Combine the DB results into a single context string
-            rag_context = "\n\n---\n\n".join([doc.page_content for doc in db_results])
-            if not rag_context.strip():
-                 rag_context = "No specific rules found in the local database for this exact topic."
-        except Exception as e:
-             print(f"     Database search failed: {e}")
-             rag_context = "Database search failed."
-        
-        # ==========================================
-        # STEP 3: THE WRITER PHASE
-        # ==========================================
-        final_prompt_text = f"""You are an expert Science Olympiad note-taker building a dense cheat sheet. 
-        Write EXACTLY 130-140 words to fulfill the requested target with extreme technical depth.
-        
-        STRICT RULES:
-        1. Use the provided Rulebook Context AND the Cached Rulebook (if available) to ensure your facts are accurate.
-        2. Format using dense bullet points. Use bold text for key terms.
-        3. Include formulas, key stats, edge cases, and precise conditions.
-        4. ALWAYS highlight test traps or common mistakes.
-        5. Start immediately with facts. NO conversational filler.
-        
+        system_prompt = SystemMessage(content=f"""You are an expert Science Olympiad AI Assistant building a dense cheat sheet. 
+        The user is studying for the event: {EVENT_NAME}.
+
+        STRICT WORKFLOW PROTOCOL:
+        1. SCOPE CHECK: If out of scope, call 'reject_out_of_scope'.
+        2. CHECK RULES: Always use 'search_scioly_rules' first. You MUST pass "{EVENT_NAME}" into the event_metadata parameter.
+        3. REQUEST CLEARANCE: If you need web research, use 'request_search_clearance'.
+        4. EXTERNAL RESEARCH PRIORITY: 
+           - ALWAYS prioritize using 'search_arxiv' for advanced theory.
+           - ONLY use the other web sniper tools if ArXiv returns no useful results.
+           - BE EFFICIENT: Do not spam search tools. Execute ONE highly targeted search at a time.
+        5. GATEKEEPER CHECK: Use 'submit_final_answer' to self-grade.
+        6. FINAL OUTPUT FORMAT:
+           - Write EXACTLY 130-140 words.
+           - Format using dense bullet points.
+           - Use bold text for key terms.
+           - Include formulas, key stats, edge cases, and precise conditions.
+           - ALWAYS highlight test traps or common mistakes.
+           - Start immediately with facts. NO conversational filler.
+        """)
+
+        research_task = HumanMessage(content=f"""
         ORIGINAL TARGET: {topic}
         
         EXPANDED REQUIREMENTS TO COVER: 
         {expanded_requirements}
-        
-        RAG RULEBOOK CONTEXT:
-        {rag_context}
-        """
+        """)
+
+        initial_state = {"messages": [system_prompt, research_task]}
 
         try:
-            if CACHE_NAME:
-                from google import genai
-                from google.genai import types
-                genai_client = genai.Client()
-                
-                response = genai_client.models.generate_content(
-                    model='gemini-2.5-flash',
-                    contents=final_prompt_text,
-                    config=types.GenerateContentConfig(
-                        cached_content=CACHE_NAME,
-                        temperature=0.2
-                    )
-                )
-                final_content = response.text
-                
-                # Manually log tokens to the tracker
-                if response.usage_metadata:
-                    in_tokens = response.usage_metadata.prompt_token_count
-                    out_tokens = response.usage_metadata.candidates_token_count
-                    tracker._log_to_file(in_tokens, out_tokens)
-                    print(f"      [Writer] -> Draft complete. (Cached Cost: {in_tokens} tokens)")
-                else:
-                    print("      [Writer] -> Draft complete. (Cached)")
-            else:
-                writer_prompt = SystemMessage(content="You are an expert Science Olympiad note-taker. Follow the prompt instructions perfectly.")
-                final_req = HumanMessage(content=final_prompt_text)
-                final_note = llm.invoke([writer_prompt, final_req])
-                final_content = final_note.content
-                print("      [Writer] -> Draft complete. (Standard LangChain)")
-                
-            generated_notes[section_name].append({
-                "original_target": topic,
-                "expanded_requirements": expanded_requirements,
-                "content": final_content
-            })
-            
-            # Save state after EVERY successful generation so we don't lose progress if API fails later
-            with open("raw_research_notes.json", "w", encoding="utf-8") as f:
-                json.dump(generated_notes, f, indent=4)
-                
-            # API Rate limit protection removed - user is on Paid Tier!
+            # We use a high recursion limit because the agent may need to use multiple search tools
+            final_state = app.invoke(initial_state, config={"recursion_limit": 25})
+            final_content = final_state["messages"][-1].content
+            print("      [Writer] -> Graph Agent Draft complete.")
         except Exception as e:
-            print(f"      ❌ Error writing final note: {e}")
+            print(f"      ❌ Error during Graph Agent execution: {e}")
+            continue
+
+        generated_notes[section_name].append({
+            "original_target": topic,
+            "expanded_requirements": expanded_requirements,
+            "content": final_content
+        })
+        
+        # Save state after EVERY successful generation
+        with open("raw_research_notes.json", "w", encoding="utf-8") as f:
+            json.dump(generated_notes, f, indent=4)
 
 print("\n✅ All research complete! Safely saved to 'raw_research_notes.json'")
