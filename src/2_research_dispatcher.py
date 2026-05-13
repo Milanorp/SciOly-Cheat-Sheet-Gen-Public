@@ -1,13 +1,15 @@
 import os
 import json
 import time
+import asyncio
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from graph_agent import app
+from token_tracker import TokenTrackerCallback
 
 print("\n" + "="*60)
-print("🧠 PHASE 2: THE RESEARCH DISPATCHER (EXPAND & RAG) 🧠")
+print("🧠 PHASE 2: THE RESEARCH DISPATCHER (PARALLEL RAG) 🧠")
 print("="*60)
 
 load_dotenv()
@@ -28,34 +30,16 @@ except FileNotFoundError:
     print("❌ Error: 'cheat_sheet_blueprint.json' not found. Please run '1_cheat_sheet_architect.py' first.")
     exit(1)
 
-from token_tracker import TokenTrackerCallback
-
 tracker = TokenTrackerCallback(script_name="2_research_dispatcher")
 llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.2, max_retries=5, callbacks=[tracker])
 
-generated_notes = {}
-if os.path.exists("raw_research_notes.json"):
-    try:
-        with open("raw_research_notes.json", "r", encoding="utf-8") as f:
-            generated_notes = json.load(f)
-        print("Found previous save state! Resuming research...")
-    except Exception as e:
-        print(f"Could not load previous save state: {e}. Starting fresh.")
+# Concurrency limiting to prevent 429 API rate limits
+CONCURRENCY_LIMIT = 5
+semaphore = asyncio.Semaphore(CONCURRENCY_LIMIT)
 
-# 2. Iterate through the Blueprint
-for section_name, micro_topics in blueprint.items():
-    print(f"\nProcessing Section: {section_name}")
-    if section_name not in generated_notes:
-        generated_notes[section_name] = []
-    
-    for topic in micro_topics:
-        # Check if this topic has already been processed
-        already_processed = any(item.get("original_target") == topic for item in generated_notes[section_name])
-        if already_processed:
-            print(f"\n  Skipping (Already done): {topic[:60]}...")
-            continue
-
-        print(f"\n   Target: {topic[:60]}...")
+async def process_topic(section_name, topic, generated_notes_lock):
+    async with semaphore:
+        print(f"\n   [Start] Target: {topic[:60]}...")
         
         # ==========================================
         # STEP 1: THE EXPANSION PHASE
@@ -73,11 +57,12 @@ for section_name, micro_topics in blueprint.items():
         expansion_msg = HumanMessage(content=f"Expand this target: '{topic}'")
         
         try:
-            expanded_requirements = llm.invoke([expander_prompt, expansion_msg]).content
-            print(f"      [Expanded] -> Ready. Dispatching to Graph Agent...")
+            expanded_response = await llm.ainvoke([expander_prompt, expansion_msg])
+            expanded_requirements = expanded_response.content
+            print(f"      [Expanded] -> {topic[:20]}... Ready. Dispatching to Graph Agent...")
         except Exception as e:
-             print(f"      ❌ Error during expansion: {e}")
-             continue 
+             print(f"      ❌ Error during expansion for '{topic[:20]}': {e}")
+             return 
         
         # ==========================================
         # STEP 2: GRAPH AGENT RAG
@@ -113,22 +98,75 @@ for section_name, micro_topics in blueprint.items():
         initial_state = {"messages": [system_prompt, research_task]}
 
         try:
-            # We use a high recursion limit because the agent may need to use multiple search tools
-            final_state = app.invoke(initial_state, config={"recursion_limit": 25})
+            # We use ainvoke for parallel non-blocking execution
+            final_state = await app.ainvoke(initial_state, config={"recursion_limit": 25})
             final_content = final_state["messages"][-1].content
-            print("      [Writer] -> Graph Agent Draft complete.")
+            print(f"      [Writer] -> Graph Agent Draft complete for: {topic[:20]}...")
         except Exception as e:
-            print(f"      ❌ Error during Graph Agent execution: {e}")
-            continue
+            print(f"      ❌ Error during Graph Agent execution for '{topic[:20]}': {e}")
+            return
 
-        generated_notes[section_name].append({
-            "original_target": topic,
-            "expanded_requirements": expanded_requirements,
-            "content": final_content
-        })
+        async with generated_notes_lock:
+            # Safely append and save to disk
+            generated_notes = {}
+            if os.path.exists("raw_research_notes.json"):
+                try:
+                    with open("raw_research_notes.json", "r", encoding="utf-8") as f:
+                        generated_notes = json.load(f)
+                except Exception:
+                    pass
+
+            if section_name not in generated_notes:
+                generated_notes[section_name] = []
+                
+            generated_notes[section_name].append({
+                "original_target": topic,
+                "expanded_requirements": expanded_requirements,
+                "content": final_content
+            })
+            
+            with open("raw_research_notes.json", "w", encoding="utf-8") as f:
+                json.dump(generated_notes, f, indent=4)
+
+
+async def main():
+    generated_notes = {}
+    if os.path.exists("raw_research_notes.json"):
+        try:
+            with open("raw_research_notes.json", "r", encoding="utf-8") as f:
+                generated_notes = json.load(f)
+            print("Found previous save state! Resuming research...")
+        except Exception as e:
+            print(f"Could not load previous save state: {e}. Starting fresh.")
+
+    # 2. Iterate through the Blueprint and gather tasks
+    tasks = []
+    generated_notes_lock = asyncio.Lock()
+    
+    for section_name, micro_topics in blueprint.items():
+        print(f"\nQueueing Section: {section_name}")
+        if section_name not in generated_notes:
+            generated_notes[section_name] = []
         
-        # Save state after EVERY successful generation
-        with open("raw_research_notes.json", "w", encoding="utf-8") as f:
-            json.dump(generated_notes, f, indent=4)
+        for topic in micro_topics:
+            # Check if this topic has already been processed
+            already_processed = any(item.get("original_target") == topic for item in generated_notes.get(section_name, []))
+            if already_processed:
+                print(f"  Skipping (Already done): {topic[:60]}...")
+                continue
+            
+            tasks.append(process_topic(section_name, topic, generated_notes_lock))
 
-print("\n✅ All research complete! Safely saved to 'raw_research_notes.json'")
+    if tasks:
+        print(f"\n🚀 Firing {len(tasks)} tasks in parallel (Max Concurrency: {CONCURRENCY_LIMIT})...")
+        await asyncio.gather(*tasks)
+    else:
+        print("\n✅ All topics were already completed!")
+
+    print("\n✅ All research complete! Safely saved to 'raw_research_notes.json'")
+
+if __name__ == "__main__":
+    # Workaround for Windows nested asyncio loops if run in specific environments
+    if os.name == 'nt':
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    asyncio.run(main())
