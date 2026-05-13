@@ -30,8 +30,9 @@ class ExtractedConcepts(BaseModel):
 structured_llm = llm.with_structured_output(ExtractedConcepts)
 
 cruncher_prompt = SystemMessage(content="""You are a data-mining AI. 
-Read the provided Science Olympiad test questions. Extract the specific concepts being tested and any obvious traps or tricky unit conversions. 
-Standardize the names of the concepts (e.g., if you see questions about 'biceps' and 'triceps', extract 'Skeletal Muscle Anatomy').""")
+Read the provided Science Olympiad test questions. Extract highly specific event topics being tested (e.g., specific household toxins, poisonous plants/animals, spill dynamics, exact chemical reactions). 
+DO NOT extract basic, foundational science concepts like 'Atomic Structure', 'VSEPR', or 'Basic Stoichiometry'. Only extract the specific advanced applications and any obvious traps or tricky unit conversions. 
+Standardize the names of the concepts.""")
 
 # ==========================================
 # 2. CHECKPOINT LOADING LOGIC

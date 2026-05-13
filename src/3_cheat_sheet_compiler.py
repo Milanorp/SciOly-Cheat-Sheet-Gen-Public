@@ -50,10 +50,11 @@ for section_name, items in notes.items():
     
     STRICT RULES:
     1. RETAIN ALL FACTS: Do not lose any formulas, numbers, or key terms.
-    2. PURE CONTINUOUS TEXT: Write the entire synthesis as one single, massive, continuous block of text. ABSOLUTELY NO line breaks or new paragraphs.
-    3. NO FORMATTING: Do not use bold text, italics, bullet points, or markdown. Use plain text only.
-    4. NO EMOJIS.
-    5. NO FILLER: Remove all introductory or transition sentences.""")
+    2. PURE CONTINUOUS PROSE: Write the entire synthesis as one single, massive, continuous block of text. ABSOLUTELY NO line breaks or new paragraphs.
+    3. PERFECT GRAMMAR & PUNCTUATION: The raw notes contain fragmented bullet points. You MUST convert these fragments into clear, concise, and complete English sentences. Every distinct fact must end with a period or semicolon. Ensure the English is highly readable and not a confusing run-on.
+    4. NO FORMATTING: Do not use bold text, italics, bullet points, or markdown. Use plain text only.
+    5. NO EMOJIS.
+    6. NO FILLER: Remove all introductory or transition sentences.""")
     
     synthesis_req = HumanMessage(content=f"Synthesize these disjointed notes into a cohesive block of plain text:\n\n{raw_section_text}")
     

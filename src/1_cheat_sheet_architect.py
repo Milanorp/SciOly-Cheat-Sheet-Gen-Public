@@ -111,9 +111,10 @@ Your targets must be incredibly "meaty" and detailed. Do not just ask for a basi
 
 CRITICAL CONSTRAINTS & MANDATES:
 1. DYNAMIC SECTIONS: You MUST generate exactly 5 sections. You must dynamically determine the 5 most appropriate section titles based on the official rules. For example, if it's a lab event, include a 'Lab Techniques' section. If it's a biology event, include an 'Anatomy' section.
-2. RULE MANDATE: You MUST ensure that every specific item, formula, chemical, or organism explicitly listed in the Official Rules gets its own dedicated target.
-3. FREQUENCY MANDATE: You MUST prioritize the topics and traps listed in the Past Test Frequency data for the remaining targets to maximize competition yield.
-4. HYPER-SPECIFICITY: The research agent needs exact instructions. 
+2. EXHAUSTIVE RULE MANDATE (NO TRASH INFO): You MUST hunt down and ensure that every single specific item, formula, chemical, plant, animal, and environmental scenario (like toxic spills) explicitly listed in the Official Rules gets its own dedicated target. 
+3. CROSS-REFERENCE MANDATE: You will receive a Past Test Frequency Leaderboard. You MUST filter it. If a leaderboard topic is a broad, generic science concept (like 'Electron Configurations' or 'Basic Stoichiometry') that is NOT explicitly required by the Official Rules, you MUST discard it. Only use leaderboard topics that directly align with the specific event syllabus.
+4. ELIMINATE FLUFF: DO NOT generate targets for general, broad, or high-level scientific concepts (e.g., 'General Atomic Structure', 'Basic VSEPR Theory') unless they are explicitly requested by the rules. If an item is not in the rules or the filtered leaderboard, DO NOT include it. Stick strictly to the event's specific syllabus!
+5. HYPER-SPECIFICITY: The research agent needs exact instructions. 
    - BAD TARGET: "Friction concepts"
    - GOOD TARGET: "The exact formulas for static and kinetic friction, the derivation of mu from an inclined plane angle, and the trap of confusing mass with normal force when calculating acceleration."
 """
