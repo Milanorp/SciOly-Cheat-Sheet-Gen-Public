@@ -26,6 +26,10 @@ async def run(event_name: str, blueprint: dict, cache_info: dict) -> dict:
     CONCURRENCY_LIMIT = 5
     semaphore = asyncio.Semaphore(CONCURRENCY_LIMIT)
 
+    DATA_DIR = "pipeline_data"
+    os.makedirs(DATA_DIR, exist_ok=True)
+    NOTES_FILE = os.path.join(DATA_DIR, "raw_research_notes.json")
+
     async def process_topic(section_name, topic, generated_notes_lock, generated_notes):
         async with semaphore:
             print(f"\n   [Start] Target: {topic[:60]}...")
@@ -98,13 +102,13 @@ async def run(event_name: str, blueprint: dict, cache_info: dict) -> dict:
                     "content": final_content
                 })
                 
-                async with aiofiles.open("raw_research_notes.json", mode="w", encoding="utf-8") as f:
+                async with aiofiles.open(NOTES_FILE, mode="w", encoding="utf-8") as f:
                     await f.write(json.dumps(generated_notes, indent=4))
 
     generated_notes = {}
-    if os.path.exists("raw_research_notes.json"):
+    if os.path.exists(NOTES_FILE):
         try:
-            with open("raw_research_notes.json", "r", encoding="utf-8") as f:
+            with open(NOTES_FILE, "r", encoding="utf-8") as f:
                 generated_notes = json.load(f)
             print("Found previous save state! Resuming research...")
         except Exception as e:
@@ -132,7 +136,7 @@ async def run(event_name: str, blueprint: dict, cache_info: dict) -> dict:
     else:
         print("\n✅ All topics were already completed!")
 
-    print("\n✅ All research complete! Safely saved to 'raw_research_notes.json'")
+    print("\n✅ All research complete! Safely saved to 'pipeline_data/raw_research_notes.json'")
     return generated_notes
 
 if __name__ == "__main__":

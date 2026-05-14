@@ -39,7 +39,9 @@ def run() -> dict:
         print(f"   ✅ Cache created successfully! Cache Name: {cache.name}")
         
         # Save cache name to a local file for checkpointing
-        with open("cache_info.json", "w", encoding="utf-8") as f:
+        DATA_DIR = "pipeline_data"
+        os.makedirs(DATA_DIR, exist_ok=True)
+        with open(os.path.join(DATA_DIR, "cache_info.json"), "w", encoding="utf-8") as f:
             json.dump({"cache_name": cache.name}, f)
         print("\nSUCCESS! Cache is ready for Dispatcher!")
         return {"cache_name": cache.name}

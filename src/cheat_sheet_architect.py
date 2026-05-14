@@ -113,7 +113,9 @@ def run(event_name: str, frequency_data: dict) -> tuple[str, dict]:
             total_targets += len(sec.micro_topics)
         
         # We can still dump to json for debugging/checkpointing
-        with open("cheat_sheet_blueprint.json", "w", encoding="utf-8") as f:
+        DATA_DIR = "pipeline_data"
+        os.makedirs(DATA_DIR, exist_ok=True)
+        with open(os.path.join(DATA_DIR, "cheat_sheet_blueprint.json"), "w", encoding="utf-8") as f:
             json.dump(final_dict, f, indent=4)
             
         print(f"✅ SUCCESS! Master Blueprint generated.")

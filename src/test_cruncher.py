@@ -36,7 +36,9 @@ def run() -> dict:
     Standardize the names of the concepts.""")
 
     TESTS_FOLDER = "raw_tests"
-    PROGRESS_FILE = "cruncher_save_state.json"
+    DATA_DIR = "pipeline_data"
+    os.makedirs(DATA_DIR, exist_ok=True)
+    PROGRESS_FILE = os.path.join(DATA_DIR, "cruncher_save_state.json")
 
     if not os.path.exists(TESTS_FOLDER):
         os.makedirs(TESTS_FOLDER)
@@ -120,7 +122,7 @@ def run() -> dict:
         "Top_20_Test_Traps": [f"{trap} (Seen {count} times)" for trap, count in trap_counts.most_common(20)]
     }
 
-    with open("test_frequency_map.json", "w", encoding="utf-8") as f:
+    with open(os.path.join(DATA_DIR, "test_frequency_map.json"), "w", encoding="utf-8") as f:
         json.dump(frequency_report, f, indent=4)
 
     print("✅ SUCCESS! Master frequency leaderboard computed.")
