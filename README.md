@@ -53,8 +53,7 @@ Before generating a cheat sheet, you need to provide the AI with the rulebook an
 
 2. **Past Tests (Frequency Analysis):**
    - Create a folder named `raw_tests/` in the root directory.
-   - Drop as many past test PDFs for your event into this folder as you want.
-   - Run `python 0_test_cruncher.py`. This script will read every test and generate a `test_frequency_map.json` leaderboard of the most commonly tested concepts and traps.
+   - Drop as many past test PDFs for your event into this folder as you want. (The main pipeline will automatically crunch them).
 
 ---
 

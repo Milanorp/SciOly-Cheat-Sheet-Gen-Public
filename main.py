@@ -1,51 +1,72 @@
-import subprocess
 import sys
 import os
+import asyncio
 
-print("\n" + "="*70)
-print("SCIENCE OLYMPIAD AUTONOMOUS CHEAT SHEET GENERATOR")
-print("="*70)
-print("Initializing the 6-Phase Pipeline...")
+# Ensure src/ is in PYTHONPATH so internal imports work seamlessly
+sys.path.append(os.path.abspath("src"))
 
-# Ensure we are running from the root directory but calling scripts in src/
-# We add src/ to PYTHONPATH so the scripts can easily import token_tracker
-env = os.environ.copy()
-env["PYTHONPATH"] = os.path.abspath("src") + os.pathsep + env.get("PYTHONPATH", "")
+from src import test_cruncher
+from src import cheat_sheet_architect
+from src import setup_cache
+from src import research_dispatcher
+from src import cheat_sheet_compiler
+from src import format_for_print
 
-scripts = [
-    ("Phase 0: The Test Cruncher", "src/0_test_cruncher.py"),
-    ("Phase 1: The Architect", "src/1_cheat_sheet_architect.py"),
-    ("Phase 1.5: Upload Rulebook Cache", "src/1.5_setup_cache.py"),
-    ("Phase 2: The Research Dispatcher", "src/2_research_dispatcher.py"),
-    ("Phase 3: The AI Compiler", "src/3_cheat_sheet_compiler.py"),
-    ("Phase 4: The PDF Formatter", "src/4_format_for_print.py")
-]
+def main():
+    print("\n" + "="*70)
+    print("SCIENCE OLYMPIAD AUTONOMOUS CHEAT SHEET GENERATOR")
+    print("="*70)
+    print("Initializing the 6-Phase Pipeline...")
 
-for phase_name, script_path in scripts:
-    print(f"\n[{phase_name}]")
-    print("-" * 50)
-    
-    # Run the script and stream its output to the terminal in real-time
     try:
-        process = subprocess.Popen(
-            [sys.executable, script_path],
-            env=env,
-            stdout=sys.stdout,
-            stderr=sys.stderr,
-            text=True
-        )
-        process.wait()
+        # Phase 0: Test Cruncher
+        frequency_data = test_cruncher.run()
+
+        # Get Event Name (since Architect prompts for it, we can also prompt here or let Architect do it)
+        # Let's prompt it here so we have it for the whole pipeline if needed.
+        event_name = input("\nWhat Science Olympiad event are you building a cheat sheet for? ")
         
-        if process.returncode != 0:
-            print(f"\n❌ Error: {phase_name} stopped unexpectedly (Exit Code: {process.returncode}).")
-            print("You can run 'python main.py' again later to resume progress!")
+        # Phase 1: Architect
+        event_name, blueprint = cheat_sheet_architect.run(event_name, frequency_data)
+        
+        if not blueprint:
+            print("\n❌ Pipeline stopped: Architect could not generate a blueprint.")
             sys.exit(1)
-            
+
+        # Phase 1.5: Setup Cache
+        cache_info = setup_cache.run()
+
+        # Phase 2: Research Dispatcher
+        if os.name == 'nt':
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+        
+        research_notes = asyncio.run(research_dispatcher.run(event_name, blueprint, cache_info))
+        
+        if not research_notes:
+            print("\n❌ Pipeline stopped: No research notes were generated.")
+            sys.exit(1)
+
+        # Phase 3: Compiler
+        markdown_output = cheat_sheet_compiler.run(research_notes)
+        
+        if not markdown_output:
+            print("\n❌ Pipeline stopped: Compiler failed to generate markdown.")
+            sys.exit(1)
+
+        # Phase 4: Formatter
+        format_for_print.run(markdown_output)
+
+        print("\n" + "="*70)
+        print("PIPELINE COMPLETE!")
+        print("Check 'Final_Cheat_Sheet.pdf' for your max-density competition sheet!")
+        print("="*70)
+
+    except KeyboardInterrupt:
+        print("\n\n⚠️ Pipeline interrupted by user. Progress has been saved in checkpoint files!")
+        sys.exit(0)
     except Exception as e:
-        print(f"\n❌ Failed to execute {script_path}: {e}")
+        print(f"\n❌ Pipeline failed unexpectedly: {e}")
         sys.exit(1)
 
-print("\n" + "="*70)
-print("PIPELINE COMPLETE!")
-print("Check 'Final_Cheat_Sheet.pdf' for your max-density competition sheet!")
-print("="*70)
+if __name__ == "__main__":
+    main()

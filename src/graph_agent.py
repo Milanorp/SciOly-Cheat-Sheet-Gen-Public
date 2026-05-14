@@ -11,7 +11,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_chroma import Chroma 
-from langchain_core.tools import tool
+from langchain_core.tools import tool, ToolException
 from langchain_community.tools import DuckDuckGoSearchRun
 
 # 0. LOAD SECRETS & SETUP
@@ -44,7 +44,7 @@ def reject_out_of_scope() -> str:
     print(f"\n[🛑 TOOL] Scope Violation Detected. Triggering Kill Switch.")
     return "SYSTEM ERROR: This request is outside my operational scope. Tell the user you can only assist with Science Olympiad research."
 
-@tool
+@tool(handle_tool_error=True)
 def search_scioly_rules(search_query: str, event_metadata: str = None) -> str:
     """Searches the official Science Olympiad rulebook."""
     print(f"\n[🔧 TOOL] Fast-Searching rules for: '{search_query}'")
@@ -64,7 +64,7 @@ def search_scioly_rules(search_query: str, event_metadata: str = None) -> str:
     except Exception as e:
         return f"Error searching database: {e}"
 
-@tool
+@tool(handle_tool_error=True)
 def search_arxiv(query: str) -> str:
     """
     Searches the live ArXiv database for advanced academic research papers. Use this FIRST for deep physics, biology, and engineering concepts.
@@ -91,7 +91,7 @@ def search_arxiv(query: str) -> str:
         if not results: return "No ArXiv papers found for that query. Try a shorter, broader keyword."
         return "\n---\n".join(results)
     except Exception as e:
-        return f"Error searching ArXiv: {e}"
+        raise ToolException(f"Error searching ArXiv: {e}")
 
 @tool
 def request_search_clearance(scientific_domain: str) -> str:
