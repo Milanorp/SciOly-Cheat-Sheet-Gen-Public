@@ -11,6 +11,7 @@ from src import setup_cache
 from src import research_dispatcher
 from src import research_auditor
 from src import cheat_sheet_compiler
+from src import format_for_print
 
 def main():
     print("\n" + "="*70)

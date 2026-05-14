@@ -44,7 +44,7 @@ def reject_out_of_scope() -> str:
     print(f"\n[🛑 TOOL] Scope Violation Detected. Triggering Kill Switch.")
     return "SYSTEM ERROR: This request is outside my operational scope. Tell the user you can only assist with Science Olympiad research."
 
-@tool(handle_tool_error=True)
+@tool
 def search_scioly_rules(search_query: str, event_metadata: str = None) -> str:
     """Searches the official Science Olympiad rulebook."""
     print(f"\n[🔧 TOOL] Multi-Query Expanding: '{search_query}'")
@@ -81,9 +81,9 @@ def search_scioly_rules(search_query: str, event_metadata: str = None) -> str:
         return "\n\n---\n\n".join([doc.page_content for doc in unique_contents.values()])
         
     except Exception as e:
-        raise ToolException(f"Error during multi-query search: {e}")
+        return f"Error during multi-query search: {e}"
 
-@tool(handle_tool_error=True)
+@tool
 def search_arxiv(query: str) -> str:
     """
     Searches the live ArXiv database for advanced academic research papers. Use this FIRST for deep physics, biology, and engineering concepts.
