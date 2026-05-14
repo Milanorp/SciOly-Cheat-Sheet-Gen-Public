@@ -5,6 +5,7 @@ langgraph>=0.1.0
 langchain-google-genai>=1.0.0
 langchain-chroma>=0.1.0
 langchain-text-splitters>=0.2.0
+langchain-experimental>=0.0.60
 
 # Vector DB
 chromadb>=0.5.0
