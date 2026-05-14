@@ -70,7 +70,9 @@ async def run(event_name: str, blueprint: dict, cache_info: dict) -> dict:
                - Write EXACTLY 130-140 words.
                - Format using dense bullet points.
                - Use bold text for key terms.
-               - Include formulas, key stats, edge cases, and precise conditions.
+               - ALL mathematical formulas, scientific constants, and chemical equations MUST be written in LaTeX format.
+               - Use single dollar signs for inline math (e.g., $E=mc^2$) and double dollar signs for block math.
+               - Include precise formulas, key stats, edge cases, and conditions.
                - ALWAYS highlight test traps or common mistakes.
                - Start immediately with facts. NO conversational filler.
             """)

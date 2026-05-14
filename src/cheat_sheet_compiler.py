@@ -39,16 +39,20 @@ def run(notes: dict) -> str:
         1. RETAIN ALL FACTS: Do not lose any formulas, numbers, or key terms.
         2. PURE CONTINUOUS PROSE: Write the entire synthesis as one single, massive, continuous block of text. ABSOLUTELY NO line breaks or new paragraphs.
         3. PERFECT GRAMMAR & PUNCTUATION: The raw notes contain fragmented bullet points. You MUST convert these fragments into clear, concise, and complete English sentences. Every distinct fact must end with a period or semicolon. Ensure the English is highly readable and not a confusing run-on.
-        4. NO FORMATTING: Do not use bold text, italics, bullet points, or markdown. Use plain text only.
-        5. NO EMOJIS.
-        6. NO FILLER: Remove all introductory or transition sentences.""")
+        4. NO FORMATTING: Do not use bold text, italics, bullet points, or markdown. Use plain text ONLY.
+        5. LATEX MANDATE: You MUST preserve all LaTeX formatting (e.g., $E=mc^2$) for formulas and chemical equations. Do NOT strip backslashes or dollar signs.
+        6. NO EMOJIS.
+        7. NO FILLER: Remove all introductory or transition sentences.""")
         
-        synthesis_req = HumanMessage(content=f"Synthesize these disjointed notes into a cohesive block of plain text:\n\n{raw_section_text}")
+        synthesis_req = HumanMessage(content=f"Synthesize these disjointed notes into a cohesive block of plain text while PRESERVING LaTeX math:\n\n{raw_section_text}")
         
         try:
+            # Ask AI to smooth it out
             synthesized_content = llm.invoke([synthesizer_prompt, synthesis_req]).content
             
-            synthesized_content = synthesized_content.replace("\n", " ").replace("**", "").replace("*", "").strip()
+            # Programmatic failsafe: forcefully strip any stray newlines or bold markers the AI might sneak in
+            # CRITICAL: We NO LONGER strip single asterisks as they might be used in LaTeX math.
+            synthesized_content = synthesized_content.replace("\n", " ").replace("**", "").strip()
             
             markdown_output += f"{synthesized_content} "
             total_words += len(synthesized_content.split())

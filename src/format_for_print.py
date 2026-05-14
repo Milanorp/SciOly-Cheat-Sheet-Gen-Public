@@ -29,6 +29,8 @@ def run(md_text: str = None) -> None:
     <head>
     <meta charset="utf-8">
     <title>SciOly Cheat Sheet</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <style>
         /* Reset margins for absolute maximum space */
         @page {{
@@ -43,6 +45,11 @@ def run(md_text: str = None) -> None:
             margin: 0;
             padding: 0;
             text-align: justify; /* Make it look like a solid brick of text */
+        }}
+
+        /* Ensure MathJax symbols don't blow up the line height */
+        .mjx-chtml {{
+            line-height: 0 !important;
         }}
 
         /* Remove unnecessary titles and dividers */

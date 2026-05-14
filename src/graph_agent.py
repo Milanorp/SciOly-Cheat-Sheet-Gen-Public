@@ -47,22 +47,41 @@ def reject_out_of_scope() -> str:
 @tool(handle_tool_error=True)
 def search_scioly_rules(search_query: str, event_metadata: str = None) -> str:
     """Searches the official Science Olympiad rulebook."""
-    print(f"\n[🔧 TOOL] Fast-Searching rules for: '{search_query}'")
+    print(f"\n[🔧 TOOL] Multi-Query Expanding: '{search_query}'")
     try:
-        search_kwargs = {"k": 8} 
+        # Step 1: Query Expansion
+        expansion_prompt = f"Generate 3 highly diverse search queries to find rules related to '{search_query}' for the Science Olympiad event: {event_metadata}. Focus on technical specifications, penalties, and allowed materials. Return ONLY the queries, one per line."
+        expansion_res = llm.invoke(expansion_prompt)
+        queries = [q.strip().strip('- ') for q in expansion_res.content.split('\n') if q.strip()]
+        queries.append(search_query) # Always include original
+        
+        # Deduplicate queries
+        queries = list(set(queries))
+        
+        all_docs = []
+        search_kwargs = {"k": 4} 
         if event_metadata:
             search_kwargs["filter"] = {"Event": event_metadata.title()}
-            print(f"        > Filtering by Metadata: {event_metadata.title()}")
+            print(f"        > Multi-Querying with Metadata: {event_metadata.title()}")
             
-        docs = vectorstore.similarity_search(search_query, **search_kwargs)
+        for q in queries:
+            print(f"        > Sub-query: {q[:50]}...")
+            docs = vectorstore.similarity_search(q, **search_kwargs)
+            all_docs.extend(docs)
         
-        if not docs:
-            return "No relevant rulebook sections found matching that query."
+        # Step 2: Content Deduplication
+        unique_contents = {}
+        for doc in all_docs:
+            if doc.page_content not in unique_contents:
+                unique_contents[doc.page_content] = doc
 
-        return "\n\n---\n\n".join([doc.page_content for doc in docs])
+        if not unique_contents:
+            return "No relevant rulebook sections found matching those queries."
+
+        return "\n\n---\n\n".join([doc.page_content for doc in unique_contents.values()])
         
     except Exception as e:
-        return f"Error searching database: {e}"
+        raise ToolException(f"Error during multi-query search: {e}")
 
 @tool(handle_tool_error=True)
 def search_arxiv(query: str) -> str:
