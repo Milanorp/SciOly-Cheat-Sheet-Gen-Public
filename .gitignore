@@ -8,7 +8,9 @@ __pycache__/
 
 # Local Databases & Checkpoints
 scioly_db/
-cruncher_save_state.json
+
+# Pipeline Data & Intermediary JSON files
+pipeline_data/
 
 # Logs
 token_usage_log.json
@@ -19,10 +21,6 @@ sample_rules.pdf
 
 # Generated Intermediary Files
 extracted_rules.md
-test_frequency_map.json
-cheat_sheet_blueprint.json
-raw_research_notes.json
-cache_info.json
 
 # Final Generated Outputs
 Final_Cheat_Sheet.md
