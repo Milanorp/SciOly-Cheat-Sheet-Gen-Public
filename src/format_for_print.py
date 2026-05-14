@@ -1,122 +1,77 @@
 import os
-from markdown_it import MarkdownIt
 import subprocess
+import shutil
 
-def run(md_text: str = None) -> None:
+def run(latex_content: str = None) -> None:
     print("\n" + "="*60)
-    print("PHASE 4: CHEAT SHEET FORMATTER (EXTREME DENSITY)")
+    print("PHASE 4: CHEAT SHEET FORMATTER (NATIVE LATEX)")
     print("="*60)
 
-    INPUT_FILE = "Final_Cheat_Sheet.md"
-    OUTPUT_FILE = "Final_Cheat_Sheet_Printable.html"
+    INPUT_FILE = "Final_Cheat_Sheet.tex"
+    OUTPUT_PDF = "Final_Cheat_Sheet.pdf"
 
-    if not md_text:
+    if not latex_content:
         try:
             with open(INPUT_FILE, "r", encoding="utf-8") as f:
-                md_text = f.read()
+                latex_content = f.read()
         except FileNotFoundError:
             print(f"❌ Error: '{INPUT_FILE}' not found. Please run Phase 3 first.")
             return
 
-    # Convert Markdown to HTML
-    md = MarkdownIt("commonmark")
-    html_body = md.render(md_text)
+    # Check for LaTeX compilers
+    compilers = ["pdflatex", "tectonic", "xelatex"]
+    found_compiler = None
+    
+    for c in compilers:
+        if shutil.which(c):
+            found_compiler = c
+            break
 
-    # --- THE MAGIC CSS (Ultra-Density Edition) ---
-    html_template = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-    <meta charset="utf-8">
-    <title>SciOly Cheat Sheet</title>
-    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-    <style>
-        /* Reset margins for absolute maximum space */
-        @page {{
-            size: letter portrait;
-            margin: 0.15in; /* Push text to the absolute physical printable edge */
-        }}
-        
-        body {{
-            font-family: "Segoe UI", Arial, sans-serif;
-            font-size: 5.5pt; /* Extremely tiny, dense font to hit 3.5k+ words */
-            line-height: 1.05; /* Squish lines together */
-            margin: 0;
-            padding: 0;
-            text-align: justify; /* Make it look like a solid brick of text */
-        }}
+    if found_compiler:
+        print(f"🚀 Found LaTeX compiler: {found_compiler}. Attempting to compile...")
+        try:
+            # Run the compiler
+            # pdflatex usually needs to run twice for references, 
+            # but we don't have any, so once is enough.
+            if found_compiler == "pdflatex" or found_compiler == "xelatex":
+                process = subprocess.run(
+                    [found_compiler, "-interaction=nonstopmode", INPUT_FILE],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+            elif found_compiler == "tectonic":
+                process = subprocess.run(
+                    [found_compiler, INPUT_FILE],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+            
+            if os.path.exists(OUTPUT_PDF):
+                print(f"✅ SUCCESS! Final professional PDF generated: '{OUTPUT_PDF}'")
+                
+                # Cleanup auxiliary files
+                aux_extensions = [".aux", ".log", ".out", ".toc"]
+                for ext in aux_extensions:
+                    aux_file = INPUT_FILE.replace(".tex", ext)
+                    if os.path.exists(aux_file):
+                        os.remove(aux_file)
+            else:
+                print(f"❌ Compilation failed. Compiler output:\n{process.stdout}")
+                print("\n⚠️  Manual Step Required: Your LaTeX is perfect, but the local compiler failed.")
+                print(f"Please upload '{INPUT_FILE}' to Overleaf.com for a one-click perfect PDF.")
 
-        /* Ensure MathJax symbols don't blow up the line height */
-        .mjx-chtml {{
-            line-height: 0 !important;
-        }}
-
-        /* Remove unnecessary titles and dividers */
-        h1, hr {{
-            display: none;
-        }}
-        
-        /* Make section headers tiny and inline so they don't break the flow */
-        h2 {{
-            font-size: 6pt;
-            display: inline;
-            background-color: #ddd;
-            color: black;
-            border: 1px solid black;
-            padding: 0px 2px;
-            margin: 0 4px 0 0;
-            text-transform: uppercase;
-            font-weight: normal;
-        }}
-
-        /* Force EVERYTHING to stay on the same continuous line */
-        p, ul, li, div, h3 {{
-            display: inline;
-            margin: 0;
-            padding: 0;
-        }}
-        
-        /* Strip all bold or italic styling just in case */
-        strong, b, em, i {{
-            font-weight: normal;
-            font-style: normal;
-        }}
-    </style>
-    </head>
-    <body>
-        {html_body}
-    </body>
-    </html>
-    """
-
-    # Save the HTML file
-    try:
-        with open(OUTPUT_FILE, "w", encoding="utf-8", errors="xmlcharrefreplace") as f:
-            f.write(html_template)
-        print(f"✅ SUCCESS! Created ultra-dense layout: '{OUTPUT_FILE}'")
-        
-        # --- AUTOMATIC PDF CONVERSION ---
-        print("Automatically converting HTML to PDF using browser headless engine...")
-        pdf_output = "Final_Cheat_Sheet.pdf"
-        edge_path = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
-        
-        if os.path.exists(edge_path):
-            command = [
-                edge_path,
-                "--headless",
-                "--disable-gpu",
-                "--no-pdf-header-footer",
-                f"--print-to-pdf={os.path.abspath(pdf_output)}",
-                f"file:///{os.path.abspath(OUTPUT_FILE)}"
-            ]
-            subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            print(f"SUCCESS! Final ready-to-print PDF saved to: '{pdf_output}'")
-        else:
-            print("Microsoft Edge not found. Could not auto-generate PDF. Please open the HTML file and print manually.")
-
-    except Exception as e:
-        print(f"❌ Error creating printable file: {e}")
+        except Exception as e:
+            print(f"❌ Error during compilation: {e}")
+            print(f"⚠️  Manual Step Required: Please upload '{INPUT_FILE}' to Overleaf.com.")
+    else:
+        print("❌ No LaTeX compiler (pdflatex, tectonic, or xelatex) found on this system.")
+        print(f"✅ SUCCESS! Created professional LaTeX source: '{INPUT_FILE}'")
+        print("\n🚀 NEXT STEP: To get your professional PDF:")
+        print(f"1. Go to Overleaf.com")
+        print(f"2. Create a new project and upload '{INPUT_FILE}'")
+        print(f"3. Hit 'Recompile' for a math-perfect, high-density cheat sheet.")
 
 if __name__ == "__main__":
     run()

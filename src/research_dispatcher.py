@@ -9,7 +9,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from src.graph_agent import app
 from src.token_tracker import TokenTrackerCallback
 
-async def run(event_name: str, blueprint: dict, cache_info: dict) -> dict:
+async def run(event_name: str, blueprint: dict, cache_info: dict, target_topics: list = None) -> dict:
     print("\n" + "="*60)
     print("🧠 PHASE 2: THE RESEARCH DISPATCHER (PARALLEL RAG) 🧠")
     print("="*60)
@@ -21,7 +21,7 @@ async def run(event_name: str, blueprint: dict, cache_info: dict) -> dict:
         return {}
 
     tracker = TokenTrackerCallback(script_name="2_research_dispatcher")
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.2, max_retries=5, callbacks=[tracker])
+    llm = ChatGoogleGenerativeAI(model="gemini-2.0-pro-exp-02-05", temperature=0.2, max_retries=5, callbacks=[tracker])
 
     CONCURRENCY_LIMIT = 5
     semaphore = asyncio.Semaphore(CONCURRENCY_LIMIT)
@@ -97,12 +97,20 @@ async def run(event_name: str, blueprint: dict, cache_info: dict) -> dict:
             async with generated_notes_lock:
                 if section_name not in generated_notes:
                     generated_notes[section_name] = []
-                    
-                generated_notes[section_name].append({
+                
+                # If we are re-researching, replace the old entry
+                existing_entry_idx = next((i for i, item in enumerate(generated_notes[section_name]) if item.get("original_target") == topic), None)
+                
+                new_entry = {
                     "original_target": topic,
                     "expanded_requirements": expanded_requirements,
                     "content": final_content
-                })
+                }
+
+                if existing_entry_idx is not None:
+                    generated_notes[section_name][existing_entry_idx] = new_entry
+                else:
+                    generated_notes[section_name].append(new_entry)
                 
                 async with aiofiles.open(NOTES_FILE, mode="w", encoding="utf-8") as f:
                     await f.write(json.dumps(generated_notes, indent=4))
@@ -112,7 +120,10 @@ async def run(event_name: str, blueprint: dict, cache_info: dict) -> dict:
         try:
             with open(NOTES_FILE, "r", encoding="utf-8") as f:
                 generated_notes = json.load(f)
-            print("Found previous save state! Resuming research...")
+            if target_topics:
+                print(f"Found previous save state! Targeted re-research for {len(target_topics)} topics...")
+            else:
+                print("Found previous save state! Resuming research...")
         except Exception as e:
             print(f"Could not load previous save state: {e}. Starting fresh.")
 
@@ -120,15 +131,19 @@ async def run(event_name: str, blueprint: dict, cache_info: dict) -> dict:
     generated_notes_lock = asyncio.Lock()
     
     for section_name, micro_topics in blueprint.items():
-        print(f"\nQueueing Section: {section_name}")
         if section_name not in generated_notes:
             generated_notes[section_name] = []
         
         for topic in micro_topics:
-            already_processed = any(item.get("original_target") == topic for item in generated_notes.get(section_name, []))
-            if already_processed:
-                print(f"  Skipping (Already done): {topic[:60]}...")
+            # If target_topics is provided, only process those
+            if target_topics and topic not in target_topics:
                 continue
+
+            # If not target_topics, check if already done for resuming
+            if not target_topics:
+                already_processed = any(item.get("original_target") == topic for item in generated_notes.get(section_name, []))
+                if already_processed:
+                    continue
             
             tasks.append(process_topic(section_name, topic, generated_notes_lock, generated_notes))
 
@@ -136,9 +151,9 @@ async def run(event_name: str, blueprint: dict, cache_info: dict) -> dict:
         print(f"\n🚀 Firing {len(tasks)} tasks in parallel (Max Concurrency: {CONCURRENCY_LIMIT})...")
         await asyncio.gather(*tasks)
     else:
-        print("\n✅ All topics were already completed!")
+        print("\n✅ No research tasks needed in this run!")
 
-    print("\n✅ All research complete! Safely saved to 'pipeline_data/raw_research_notes.json'")
+    print(f"\n✅ Phase 2 complete! Safely saved to '{NOTES_FILE}'")
     return generated_notes
 
 if __name__ == "__main__":

@@ -62,7 +62,7 @@ def run(event_name: str, frequency_data: dict) -> tuple[str, dict]:
     print(f"\nWaking up the Architect to isolate the top 50 max-density targets for: {event_name}...")
 
     tracker = TokenTrackerCallback(script_name="1_cheat_sheet_architect")
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.1, max_retries=3, callbacks=[tracker])
+    llm = ChatGoogleGenerativeAI(model="gemini-2.0-pro-exp-02-05", temperature=0.1, max_retries=3, callbacks=[tracker])
     structured_llm = llm.with_structured_output(CheatSheetBlueprint)
 
     prompt_text = f"""You are an elite Science Olympiad National Head Coach for the event: {event_name}.

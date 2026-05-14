@@ -9,8 +9,8 @@ from src import test_cruncher
 from src import cheat_sheet_architect
 from src import setup_cache
 from src import research_dispatcher
+from src import research_auditor
 from src import cheat_sheet_compiler
-from src import format_for_print
 
 def main():
     print("\n" + "="*70)
@@ -22,13 +22,12 @@ def main():
         # Phase 0: Test Cruncher
         frequency_data = test_cruncher.run()
 
-        # Get Event Name (since Architect prompts for it, we can also prompt here or let Architect do it)
-        # Let's prompt it here so we have it for the whole pipeline if needed.
+        # Get Event Name
         event_name = input("\nWhat Science Olympiad event are you building a cheat sheet for? ")
-        
+
         # Phase 1: Architect
         event_name, blueprint = cheat_sheet_architect.run(event_name, frequency_data)
-        
+
         if not blueprint:
             print("\n❌ Pipeline stopped: Architect could not generate a blueprint.")
             sys.exit(1)
@@ -36,25 +35,43 @@ def main():
         # Phase 1.5: Setup Cache
         cache_info = setup_cache.run()
 
-        # Phase 2: Research Dispatcher
+        # Phase 2 & 2.5: Research and Self-Correction Loop
         if os.name == 'nt':
             asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-        
-        research_notes = asyncio.run(research_dispatcher.run(event_name, blueprint, cache_info))
-        
-        if not research_notes:
-            print("\n❌ Pipeline stopped: No research notes were generated.")
-            sys.exit(1)
+
+        # Start the loop
+        max_retries = 3
+        retry_count = 0
+        failed_topics = None
+
+        while retry_count < max_retries:
+            research_notes = asyncio.run(research_dispatcher.run(event_name, blueprint, cache_info, target_topics=failed_topics))
+
+            if not research_notes:
+                print("\n❌ Pipeline stopped: No research notes were generated.")
+                sys.exit(1)
+
+            # Phase 2.5: Audit the research
+            failed_topics = research_auditor.run(research_notes)
+
+            if not failed_topics:
+                break
+
+            retry_count += 1
+            print(f"\n🔄 Self-Correction Loop: Retry {retry_count}/{max_retries} for {len(failed_topics)} topics...")
+
+        if failed_topics:
+            print(f"\n⚠️ Warning: {len(failed_topics)} topics failed audit after {max_retries} retries. Proceeding with best available notes.")
 
         # Phase 3: Compiler
-        markdown_output = cheat_sheet_compiler.run(research_notes)
+        latex_output = cheat_sheet_compiler.run(research_notes)
         
-        if not markdown_output:
-            print("\n❌ Pipeline stopped: Compiler failed to generate markdown.")
+        if not latex_output:
+            print("\n❌ Pipeline stopped: Compiler failed to generate LaTeX.")
             sys.exit(1)
 
         # Phase 4: Formatter
-        format_for_print.run(markdown_output)
+        format_for_print.run(latex_output)
 
         print("\n" + "="*70)
         print("PIPELINE COMPLETE!")
