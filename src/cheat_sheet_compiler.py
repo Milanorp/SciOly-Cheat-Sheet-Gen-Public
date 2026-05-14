@@ -1,21 +1,21 @@
 import json
 import os
 import time
-from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_google_genai import ChatGoogleGenerativeAI
 from src.token_tracker import TokenTrackerCallback
+from src.factory import factory
 
 def run(notes: dict) -> str:
+    config = factory.get_config()
+    OUTPUT_FILE = config['paths']['output_tex']
+
     print("\n" + "="*60)
     print("PHASE 3: THE AI CHEAT SHEET COMPILER (NATIVE LATEX)")
     print("="*60)
 
-    load_dotenv()
     tracker = TokenTrackerCallback(script_name="3_cheat_sheet_compiler")
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-pro", temperature=0.3, callbacks=[tracker])
-
-    OUTPUT_FILE = "Final_Cheat_Sheet.tex"
+    llm = factory.get_llm(purpose="compiler")
+    llm.callbacks = [tracker]
 
     if not notes:
         print("❌ Error: No notes provided. Please run Phase 2 first.")
@@ -64,20 +64,26 @@ def run(notes: dict) -> str:
             combined_content += f"\\noindent \\textbf{{{clean_section_name}}}: Error synthesizing this section.\n\n"
 
     # BUILD THE FULL LATEX DOCUMENT
-    latex_template = r"""
-\documentclass[9pt]{extarticle}
-\usepackage[utf8]{inputenc}
-\usepackage[margin=0.15in, letterpaper]{geometry}
-\usepackage{amsmath, amssymb, amsfonts}
-\usepackage{microtype} % Better kerning and density
+    font_size = config['formatting']['font_size']
+    content_font_size = config['formatting']['content_font_size']
+    line_height = config['formatting']['line_height']
+    margins = config['formatting']['margins']
+    paper_size = config['formatting']['paper_size']
 
-\pagestyle{empty}
-\setlength{\parindent}{0pt}
-\setlength{\parskip}{2pt}
-\renewcommand{\baselinestretch}{1.0}
+    latex_template = fr"""
+\documentclass[{font_size}]{{extarticle}}
+\usepackage[utf8]{{inputenc}}
+\usepackage[margin={margins}, {paper_size}]{{geometry}}
+\usepackage{{amsmath, amssymb, amsfonts}}
+\usepackage{{microtype}} % Better kerning and density
+
+\pagestyle{{empty}}
+\setlength{{\parindent}}{{0pt}}
+\setlength{{\parskip}}{{2pt}}
+\renewcommand{{\baselinestretch}}{{1.0}}
 
 \begin{document}
-\fontsize{7pt}{8pt}\selectfont
+\fontsize{{{content_font_size}}}{{{line_height}}}\selectfont
 """
     latex_template += combined_content
     latex_template += "\n\\end{document}"

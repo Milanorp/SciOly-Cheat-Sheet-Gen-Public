@@ -1,17 +1,9 @@
 import os
 import json
-from dotenv import load_dotenv
-from pydantic import BaseModel, Field
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_google_genai import ChatGoogleGenerativeAI
 from src.token_tracker import TokenTrackerCallback
-
-load_dotenv()
-
-class AuditResult(BaseModel):
-    grade: str = Field(description="A letter grade A, B, C, D, or F based on the quality and technical depth of the research.")
-    feedback: str = Field(description="Specific, actionable feedback on what is missing or incorrect. If it's an A, say 'PERFECT'.")
-    is_pass: bool = Field(description="True if the grade is A or B, False otherwise.")
+from src.factory import factory
+from src.models import AuditReport
 
 def run(research_notes: dict) -> list[str]:
     print("\n" + "="*60)
@@ -19,10 +11,10 @@ def run(research_notes: dict) -> list[str]:
     print("="*60)
 
     tracker = TokenTrackerCallback(script_name="2.5_research_auditor")
-    # Use 1.5-flash for speed or 1.5-pro for higher intelligence? 
-    # Let's stick with flash but with a strict prompt.
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-pro", temperature=0.1, callbacks=[tracker])
-    structured_llm = llm.with_structured_output(AuditResult)
+    llm = factory.get_llm(purpose="auditor")
+    llm.callbacks = [tracker]
+    
+    structured_llm = llm.with_structured_output(AuditReport)
 
     failed_topics = []
     total_audited = 0
@@ -65,16 +57,13 @@ def run(research_notes: dict) -> list[str]:
                 
                 if result.is_pass:
                     total_passed += 1
-                    # print(f"   [PASS] {topic[:40]}... Grade: {result.grade}")
                 else:
                     print(f"   [FAIL] {topic[:40]}... Grade: {result.grade}")
                     print(f"          > Feedback: {result.feedback}")
                     failed_topics.append(topic)
             except Exception as e:
                 print(f"   ❌ Error auditing '{topic[:20]}': {e}")
-                # If audit fails, let's assume it passes to avoid infinite loops, 
-                # or we could fail it. Let's assume pass for now.
-                total_passed += 1
+                total_passed += 1 # Default to pass on AI error to prevent loops
 
     print(f"\nAudit Summary: {total_passed}/{total_audited} topics passed.")
     if failed_topics:

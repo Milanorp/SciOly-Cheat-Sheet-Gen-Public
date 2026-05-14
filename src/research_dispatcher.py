@@ -3,32 +3,28 @@ import json
 import time
 import asyncio
 import aiofiles
-from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_google_genai import ChatGoogleGenerativeAI
 from src.graph_agent import app
 from src.token_tracker import TokenTrackerCallback
+from src.factory import factory
+from src.models import ResearchNote
 
 async def run(event_name: str, blueprint: dict, cache_info: dict, target_topics: list = None) -> dict:
+    config = factory.get_config()
+    DATA_DIR = config['paths']['data_dir']
+    NOTES_FILE = os.path.join(DATA_DIR, "raw_research_notes.json")
+    os.makedirs(DATA_DIR, exist_ok=True)
+
     print("\n" + "="*60)
     print("🧠 PHASE 2: THE RESEARCH DISPATCHER (PARALLEL RAG) 🧠")
     print("="*60)
 
-    load_dotenv()
-    
-    if not blueprint:
-        print("❌ Error: No blueprint provided. Please run Phase 1 first.")
-        return {}
-
     tracker = TokenTrackerCallback(script_name="2_research_dispatcher")
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-pro", temperature=0.2, max_retries=5, callbacks=[tracker])
+    llm = factory.get_llm(purpose="researcher")
+    llm.callbacks = [tracker]
 
-    CONCURRENCY_LIMIT = 5
+    CONCURRENCY_LIMIT = config['research']['concurrency_limit']
     semaphore = asyncio.Semaphore(CONCURRENCY_LIMIT)
-
-    DATA_DIR = "pipeline_data"
-    os.makedirs(DATA_DIR, exist_ok=True)
-    NOTES_FILE = os.path.join(DATA_DIR, "raw_research_notes.json")
 
     async def process_topic(section_name, topic, generated_notes_lock, generated_notes):
         async with semaphore:
@@ -67,7 +63,7 @@ async def run(event_name: str, blueprint: dict, cache_info: dict, target_topics:
                - BE EFFICIENT: Do not spam search tools. Execute ONE highly targeted search at a time.
             5. GATEKEEPER CHECK: Use 'submit_final_answer' to self-grade.
             6. FINAL OUTPUT FORMAT:
-               - Write EXACTLY 130-140 words.
+               - Write EXACTLY {config['research']['target_word_count']} words.
                - Format using dense bullet points.
                - Use bold text for key terms.
                - ALL mathematical formulas, scientific constants, and chemical equations MUST be written in LaTeX format.
@@ -157,6 +153,7 @@ async def run(event_name: str, blueprint: dict, cache_info: dict, target_topics:
     return generated_notes
 
 if __name__ == "__main__":
+    import asyncio
     if os.name == 'nt':
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     asyncio.run(run("Science Olympiad", {}, {}))

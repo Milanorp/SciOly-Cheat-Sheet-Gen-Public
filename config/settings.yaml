@@ -1,0 +1,44 @@
+# =====================================================================
+# SCIENCE OLYMPIAD AUTONOMOUS GENERATOR CONFIGURATION
+# =====================================================================
+
+# AI Models & Logic
+models:
+  primary: "gemini-2.5-pro"
+  fallback: "gemini-2.5-flash"
+  embedding: "models/gemini-embedding-001"
+  temperature_architect: 0.1
+  temperature_researcher: 0.2
+  temperature_auditor: 0.1
+  temperature_compiler: 0.3
+
+# Research Constraints
+research:
+  total_targets: 50
+  sections_count: 5
+  targets_per_section: 10
+  target_word_count: 140
+  concurrency_limit: 5
+  max_audit_retries: 3
+
+# Vector Database (RAG)
+database:
+  db_path: "./scioly_db"
+  chunk_size: 1000
+  chunk_overlap: 200
+
+# LaTeX Typesetting
+formatting:
+  font_size: "9pt"
+  content_font_size: "7pt"
+  line_height: "8pt"
+  margins: "0.15in"
+  paper_size: "letterpaper"
+  single_column: true
+
+# System Paths
+paths:
+  data_dir: "pipeline_data"
+  raw_tests: "raw_tests"
+  output_tex: "Final_Cheat_Sheet.tex"
+  output_pdf: "Final_Cheat_Sheet.pdf"

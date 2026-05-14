@@ -1,83 +1,106 @@
 import sys
 import os
 import asyncio
+from src.state_manager import state_manager
+from src import test_cruncher, cheat_sheet_architect, setup_cache, research_dispatcher, research_auditor, cheat_sheet_compiler, format_for_print
+from src.factory import factory
 
-# Ensure src/ is in PYTHONPATH so internal imports work seamlessly
+# Ensure src/ is in PYTHONPATH
 sys.path.append(os.path.abspath("src"))
 
-from src import test_cruncher
-from src import cheat_sheet_architect
-from src import setup_cache
-from src import research_dispatcher
-from src import research_auditor
-from src import cheat_sheet_compiler
-from src import format_for_print
-
-def main():
+async def run_pipeline():
     print("\n" + "="*70)
-    print("SCIENCE OLYMPIAD AUTONOMOUS CHEAT SHEET GENERATOR")
+    print("SCIENCE OLYMPIAD AUTONOMOUS CHEAT SHEET GENERATOR v2.0")
     print("="*70)
-    print("Initializing the 6-Phase Pipeline...")
-
+    
+    state = state_manager.load_state()
+    config = factory.get_config()
+    
     try:
-        # Phase 0: Test Cruncher
-        frequency_data = test_cruncher.run()
+        # --- PHASE 0: TEST CRUNCHER ---
+        if state.current_phase <= 0:
+            state.frequency_data = test_cruncher.run()
+            state.current_phase = 1.0
+            state_manager.save_state(state)
 
-        # Get Event Name
-        event_name = input("\nWhat Science Olympiad event are you building a cheat sheet for? ")
+        # --- EVENT NAME INPUT ---
+        if not state.event_name:
+            state.event_name = input("\nWhat Science Olympiad event are you building a cheat sheet for? ")
+            state_manager.save_state(state)
 
-        # Phase 1: Architect
-        event_name, blueprint = cheat_sheet_architect.run(event_name, frequency_data)
+        # --- PHASE 1: ARCHITECT ---
+        if state.current_phase <= 1:
+            state.event_name, state.blueprint = cheat_sheet_architect.run(state.event_name, state.frequency_data)
+            if not state.blueprint:
+                print("\n❌ Pipeline stopped: Architect failed.")
+                return
+            state.current_phase = 1.5
+            state_manager.save_state(state)
 
-        if not blueprint:
-            print("\n❌ Pipeline stopped: Architect could not generate a blueprint.")
-            sys.exit(1)
+        # --- PHASE 1.5: SETUP CACHE ---
+        if state.current_phase <= 1.5:
+            state.cache_info = setup_cache.run()
+            state.current_phase = 2.0
+            state_manager.save_state(state)
 
-        # Phase 1.5: Setup Cache
-        cache_info = setup_cache.run()
+        # --- PHASE 2 & 2.5: RESEARCH & AUDIT LOOP ---
+        if state.current_phase <= 2:
+            if os.name == 'nt':
+                asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+            
+            max_retries = config['research']['max_audit_retries']
+            
+            while state.retry_count < max_retries:
+                # Dispatch research
+                # We pass failed_topics if we have them, else None
+                targets = state.failed_topics if state.failed_topics else None
+                state.research_notes = await research_dispatcher.run(
+                    state.event_name, 
+                    state.blueprint, 
+                    state.cache_info, 
+                    target_topics=targets
+                )
+                
+                if not state.research_notes:
+                    print("\n❌ Pipeline stopped: Research failed.")
+                    return
+                
+                # Audit
+                state.failed_topics = research_auditor.run(state.research_notes)
+                
+                if not state.failed_topics:
+                    break
+                
+                state.retry_count += 1
+                state_manager.save_state(state)
+                print(f"\n🔄 Self-Correction Loop: Retry {state.retry_count}/{max_retries} for {len(state.failed_topics)} topics...")
 
-        # Phase 2 & 2.5: Research and Self-Correction Loop
-        if os.name == 'nt':
-            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+            state.current_phase = 3.0
+            state_manager.save_state(state)
 
-        # Start the loop
-        max_retries = 3
-        retry_count = 0
-        failed_topics = None
+        # --- PHASE 3: COMPILER ---
+        if state.current_phase <= 3:
+            latex_output = cheat_sheet_compiler.run(state.research_notes)
+            if not latex_output:
+                print("\n❌ Pipeline stopped: Compiler failed.")
+                return
+            state.current_phase = 4.0
+            state_manager.save_state(state)
 
-        while retry_count < max_retries:
-            research_notes = asyncio.run(research_dispatcher.run(event_name, blueprint, cache_info, target_topics=failed_topics))
-
-            if not research_notes:
-                print("\n❌ Pipeline stopped: No research notes were generated.")
-                sys.exit(1)
-
-            # Phase 2.5: Audit the research
-            failed_topics = research_auditor.run(research_notes)
-
-            if not failed_topics:
-                break
-
-            retry_count += 1
-            print(f"\n🔄 Self-Correction Loop: Retry {retry_count}/{max_retries} for {len(failed_topics)} topics...")
-
-        if failed_topics:
-            print(f"\n⚠️ Warning: {len(failed_topics)} topics failed audit after {max_retries} retries. Proceeding with best available notes.")
-
-        # Phase 3: Compiler
-        latex_output = cheat_sheet_compiler.run(research_notes)
-        
-        if not latex_output:
-            print("\n❌ Pipeline stopped: Compiler failed to generate LaTeX.")
-            sys.exit(1)
-
-        # Phase 4: Formatter
-        format_for_print.run(latex_output)
+        # --- PHASE 4: FORMATTER ---
+        if state.current_phase <= 4:
+            format_for_print.run()
+            state.current_phase = 5.0 # Done
+            state_manager.save_state(state)
 
         print("\n" + "="*70)
         print("PIPELINE COMPLETE!")
-        print("Check 'Final_Cheat_Sheet.pdf' for your max-density competition sheet!")
+        print(f"Check '{config['paths']['output_pdf']}' for your max-density competition sheet!")
         print("="*70)
+        
+        # Clear state on successful completion? Or keep it? 
+        # Let's keep it but maybe offer to clear it.
+        # state_manager.clear_state()
 
     except KeyboardInterrupt:
         print("\n\n⚠️ Pipeline interrupted by user. Progress has been saved in checkpoint files!")
@@ -87,4 +110,4 @@ def main():
         sys.exit(1)
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(run_pipeline())

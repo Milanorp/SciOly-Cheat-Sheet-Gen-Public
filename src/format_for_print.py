@@ -1,14 +1,16 @@
 import os
 import subprocess
 import shutil
+from src.factory import factory
 
 def run(latex_content: str = None) -> None:
+    config = factory.get_config()
+    INPUT_FILE = config['paths']['output_tex']
+    OUTPUT_PDF = config['paths']['output_pdf']
+
     print("\n" + "="*60)
     print("PHASE 4: CHEAT SHEET FORMATTER (NATIVE LATEX)")
     print("="*60)
-
-    INPUT_FILE = "Final_Cheat_Sheet.tex"
-    OUTPUT_PDF = "Final_Cheat_Sheet.pdf"
 
     if not latex_content:
         try:
@@ -31,8 +33,6 @@ def run(latex_content: str = None) -> None:
         print(f"🚀 Found LaTeX compiler: {found_compiler}. Attempting to compile...")
         try:
             # Run the compiler
-            # pdflatex usually needs to run twice for references, 
-            # but we don't have any, so once is enough.
             if found_compiler == "pdflatex" or found_compiler == "xelatex":
                 process = subprocess.run(
                     [found_compiler, "-interaction=nonstopmode", INPUT_FILE],

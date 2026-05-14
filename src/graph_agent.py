@@ -1,6 +1,6 @@
 import os
 import signal 
-import arxiv # <-- ADDED THIS IMPORT
+import arxiv
 from dotenv import load_dotenv
 from typing import Annotated
 from typing_extensions import TypedDict
@@ -8,28 +8,27 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
 from langchain_core.messages import HumanMessage, SystemMessage
-
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_chroma import Chroma 
 from langchain_core.tools import tool, ToolException
 from langchain_community.tools import DuckDuckGoSearchRun
+from src.factory import factory
 
 # 0. LOAD SECRETS & SETUP
 load_dotenv()
+config = factory.get_config()
 
 # --- DISABLE KEYBOARD INTERRUPT (Ctrl+C) ---
 signal.signal(signal.SIGINT, signal.SIG_IGN)
 # -------------------------------------------
 
-print("Waking up Gemini 2.5 Flash...")
-# OPTIMIZATION 1: Added max_retries for graceful rate-limit handling
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-pro", temperature=0, max_retries=3)
+print(f"Waking up {config['models']['primary']}...")
+llm = factory.get_llm(purpose="researcher")
 
 # =====================================================================
 # 1. THE DATABASE & FAST RETRIEVAL PIPELINE
 # =====================================================================
-embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
-vectorstore = Chroma(persist_directory="./scioly_db", embedding_function=embeddings)
+embeddings = factory.get_embeddings()
+vectorstore = Chroma(persist_directory=config['database']['db_path'], embedding_function=embeddings)
 
 # Base Search Engine
 ddg = DuckDuckGoSearchRun()
@@ -110,7 +109,7 @@ def search_arxiv(query: str) -> str:
         if not results: return "No ArXiv papers found for that query. Try a shorter, broader keyword."
         return "\n---\n".join(results)
     except Exception as e:
-        raise ToolException(f"Error searching ArXiv: {e}")
+        return f"Error searching ArXiv: {e}"
 
 @tool
 def request_search_clearance(scientific_domain: str) -> str:

@@ -3,8 +3,13 @@ import json
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+from src.factory import factory
 
 def run() -> dict:
+    config = factory.get_config()
+    DATA_DIR = config['paths']['data_dir']
+    os.makedirs(DATA_DIR, exist_ok=True)
+
     print("\n" + "="*60)
     print("PHASE 1.5: UPLOADING RULEBOOK TO GEMINI CACHE")
     print("="*60)
@@ -29,8 +34,9 @@ def run() -> dict:
     print("\n2. Creating Context Cache (Valid for 24 hours)...")
     try:
         # 86400 seconds = 24 hours
+        model_name = config['models']['primary']
         cache = client.caches.create(
-            model="gemini-2.5-pro",
+            model=model_name,
             config=types.CreateCachedContentConfig(
                 contents=[file],
                 ttl="86400s"
@@ -39,8 +45,6 @@ def run() -> dict:
         print(f"   ✅ Cache created successfully! Cache Name: {cache.name}")
         
         # Save cache name to a local file for checkpointing
-        DATA_DIR = "pipeline_data"
-        os.makedirs(DATA_DIR, exist_ok=True)
         with open(os.path.join(DATA_DIR, "cache_info.json"), "w", encoding="utf-8") as f:
             json.dump({"cache_name": cache.name}, f)
         print("\nSUCCESS! Cache is ready for Dispatcher!")
