@@ -13,7 +13,7 @@ def run(notes: dict) -> str:
 
     load_dotenv()
     tracker = TokenTrackerCallback(script_name="3_cheat_sheet_compiler")
-    llm = ChatGoogleGenerativeAI(model="gemini-2.0-pro-exp-02-05", temperature=0.3, callbacks=[tracker])
+    llm = ChatGoogleGenerativeAI(model="gemini-2.5-pro", temperature=0.3, callbacks=[tracker])
 
     OUTPUT_FILE = "Final_Cheat_Sheet.tex"
 

@@ -45,7 +45,7 @@ print(f"Detected {len(md_docs)} distinct event/section chunks.")
 # 5. Connect to Google's cloud embedding model
 print("4. Connecting to Google Cloud for Semantic Intelligence...")
 embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
-llm = ChatGoogleGenerativeAI(model="gemini-2.0-pro-exp-02-05", temperature=0)
+llm = ChatGoogleGenerativeAI(model="gemini-2.5-pro", temperature=0)
 
 # 4. Chop the tagged text into manageable chunks using Semantic Intelligence
 print("5. Chopping tagged sections into semantically coherent chunks...")

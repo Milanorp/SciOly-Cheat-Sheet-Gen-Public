@@ -23,7 +23,7 @@ signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 print("Waking up Gemini 2.5 Flash...")
 # OPTIMIZATION 1: Added max_retries for graceful rate-limit handling
-llm = ChatGoogleGenerativeAI(model="gemini-2.0-pro-exp-02-05", temperature=0, max_retries=3)
+llm = ChatGoogleGenerativeAI(model="gemini-2.5-pro", temperature=0, max_retries=3)
 
 # =====================================================================
 # 1. THE DATABASE & FAST RETRIEVAL PIPELINE

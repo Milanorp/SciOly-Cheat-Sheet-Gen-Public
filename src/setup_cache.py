@@ -30,7 +30,7 @@ def run() -> dict:
     try:
         # 86400 seconds = 24 hours
         cache = client.caches.create(
-            model="gemini-2.0-pro-exp-02-05",
+            model="gemini-2.5-pro",
             config=types.CreateCachedContentConfig(
                 contents=[file],
                 ttl="86400s"

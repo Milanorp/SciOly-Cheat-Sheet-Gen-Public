@@ -21,7 +21,7 @@ def run(research_notes: dict) -> list[str]:
     tracker = TokenTrackerCallback(script_name="2.5_research_auditor")
     # Use 1.5-flash for speed or 1.5-pro for higher intelligence? 
     # Let's stick with flash but with a strict prompt.
-    llm = ChatGoogleGenerativeAI(model="gemini-2.0-pro-exp-02-05", temperature=0.1, callbacks=[tracker])
+    llm = ChatGoogleGenerativeAI(model="gemini-2.5-pro", temperature=0.1, callbacks=[tracker])
     structured_llm = llm.with_structured_output(AuditResult)
 
     failed_topics = []

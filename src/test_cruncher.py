@@ -27,7 +27,7 @@ def run() -> dict:
     print("PHASE 0: PAST TEST FREQUENCY CRUNCHER")
     print("="*60)
 
-    llm = ChatGoogleGenerativeAI(model="gemini-2.0-pro-exp-02-05", temperature=0)
+    llm = ChatGoogleGenerativeAI(model="gemini-2.5-pro", temperature=0)
     structured_llm = llm.with_structured_output(ExtractedConcepts)
 
     cruncher_prompt = SystemMessage(content="""You are a data-mining AI. 

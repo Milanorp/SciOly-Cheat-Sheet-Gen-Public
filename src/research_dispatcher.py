@@ -21,7 +21,7 @@ async def run(event_name: str, blueprint: dict, cache_info: dict, target_topics:
         return {}
 
     tracker = TokenTrackerCallback(script_name="2_research_dispatcher")
-    llm = ChatGoogleGenerativeAI(model="gemini-2.0-pro-exp-02-05", temperature=0.2, max_retries=5, callbacks=[tracker])
+    llm = ChatGoogleGenerativeAI(model="gemini-2.5-pro", temperature=0.2, max_retries=5, callbacks=[tracker])
 
     CONCURRENCY_LIMIT = 5
     semaphore = asyncio.Semaphore(CONCURRENCY_LIMIT)
