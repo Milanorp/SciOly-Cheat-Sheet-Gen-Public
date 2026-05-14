@@ -8,9 +8,14 @@ __pycache__/
 
 # Local Databases & Checkpoints
 scioly_db/
+cruncher_save_state.json
 
 # Pipeline Data & Intermediary JSON files
 pipeline_data/
+test_frequency_map.json
+cheat_sheet_blueprint.json
+raw_research_notes.json
+cache_info.json
 
 # Logs
 token_usage_log.json
