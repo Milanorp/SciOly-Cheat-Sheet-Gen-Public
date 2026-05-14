@@ -63,4 +63,4 @@ The program generates a professional `.tex` file and attempts to compile it to P
 - **If not:** Simply upload `Final_Cheat_Sheet.tex` to **Overleaf.com** and hit 'Recompile' for a math-perfect result.
 
 ---
-*Powered by Gemini 2.5 Pro.*
+*Powered by Gemini API.*

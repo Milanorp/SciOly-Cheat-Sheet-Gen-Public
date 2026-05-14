@@ -4,8 +4,9 @@ import json
 from collections import Counter
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader
-from src.factory import factory
+from src.factory import factory, console
 from src.models import ExtractedConcepts
+from rich.table import Table
 
 def run() -> dict:
     config = factory.get_config()
@@ -14,27 +15,24 @@ def run() -> dict:
     PROGRESS_FILE = os.path.join(DATA_DIR, "cruncher_save_state.json")
     os.makedirs(DATA_DIR, exist_ok=True)
 
-    print("\n" + "="*60)
-    print("PHASE 0: PAST TEST FREQUENCY CRUNCHER")
-    print("="*60)
+    console.print("\n[phase]PHASE 0: PAST TEST FREQUENCY CRUNCHER[/phase]")
 
     llm = factory.get_llm(purpose="researcher")
     structured_llm = llm.with_structured_output(ExtractedConcepts)
 
     cruncher_prompt = SystemMessage(content="""You are a data-mining AI. 
-    Read the provided Science Olympiad test questions. Extract highly specific event topics being tested (e.g., specific household toxins, poisonous plants/animals, spill dynamics, exact chemical reactions). 
-    DO NOT extract basic, foundational science concepts like 'Atomic Structure', 'VSEPR', or 'Basic Stoichiometry'. Only extract the specific advanced applications and any obvious traps or tricky unit conversions. 
+    Read the provided Science Olympiad test questions. Extract highly specific event topics being tested. 
     Standardize the names of the concepts.""")
 
     if not os.path.exists(TESTS_FOLDER):
         os.makedirs(TESTS_FOLDER)
-        print(f"Created '{TESTS_FOLDER}' folder. Drop your .pdf or .docx test files in there and run again.")
+        console.print(f"[warning]Created '{TESTS_FOLDER}' folder. Drop your .pdf or .docx test files in there and run again.[/warning]")
         return {}
 
     test_files = [f for f in os.listdir(TESTS_FOLDER) if f.endswith('.pdf') or f.endswith('.docx')]
 
     if not test_files:
-        print(f"No .pdf or .docx files found in '{TESTS_FOLDER}'. Skipping test crunching.")
+        console.print(f"[warning]No .pdf or .docx files found in '{TESTS_FOLDER}'. Skipping test crunching.[/warning]")
         return {}
 
     master_concept_list = []
@@ -42,7 +40,7 @@ def run() -> dict:
     processed_files = []
 
     if os.path.exists(PROGRESS_FILE):
-        print(f"Found save file! Loading previous progress from '{PROGRESS_FILE}'...")
+        console.print(f"[info]Found save file! Loading previous progress from '{PROGRESS_FILE}'...[/info]")
         with open(PROGRESS_FILE, "r", encoding="utf-8") as f:
             save_data = json.load(f)
             master_concept_list = save_data.get("concepts", [])
@@ -50,22 +48,22 @@ def run() -> dict:
             processed_files = save_data.get("processed_files", [])
         
         files_left = len(test_files) - len(processed_files)
-        print(f"✅ Resuming... {len(processed_files)} files already crunched. {files_left} left to go!\n")
+        console.print(f"[success]✅ Resuming... {len(processed_files)} files already crunched. {files_left} left to go![/success]\n")
     else:
-        print(f"📚 Found {len(test_files)} tests. Starting fresh crunch...\n")
+        console.print(f"[info]📚 Found {len(test_files)} tests. Starting fresh crunch...[/info]\n")
 
     invoke_with_retry = factory.get_retry_decorator(
-        before_sleep_func=lambda retry_state: print(f"⚠️ Rate limit hit. Retrying in {retry_state.next_action.sleep} seconds...")
+        before_sleep_func=lambda retry_state: console.print(f"[warning]⚠️ Rate limit hit. Retrying in {retry_state.next_action.sleep}s...[/warning]")
     )(structured_llm.invoke)
 
     for filename in test_files:
         if filename in processed_files:
             continue 
 
-        filepath = os.path.join(TESTS_FOLDER, filename)
-        print(f"   Scanning file: {filename}...")
+        console.print(f"   [cyan]Scanning file:[/cyan] {filename}...")
         
         try:
+            filepath = os.path.join(TESTS_FOLDER, filename)
             if filename.endswith('.pdf'):
                 loader = PyPDFLoader(filepath)
             elif filename.endswith('.docx'):
@@ -92,11 +90,27 @@ def run() -> dict:
                 }, f, indent=4)
                 
         except Exception as e:
-            print(f"   ❌ Failed to parse {filename}: {e}")
+            console.print(f"[error]   ❌ Failed to parse {filename}: {e}[/error]")
 
-    print("\nAll files processed! Tallying final frequencies...")
+    console.print("\n[info]All files processed! Tallying final frequencies...[/info]")
     concept_counts = Counter(master_concept_list)
     trap_counts = Counter(master_trap_list)
+
+    # Use Rich Table for output
+    table = Table(title="Test Frequency Leaderboard", show_header=True, header_style="bold cyan")
+    table.add_column("Rank", style="dim", width=6)
+    table.add_column("Top Core Concepts", style="bold white")
+    table.add_column("Top Test Traps", style="yellow")
+    
+    top_concepts = concept_counts.most_common(20)
+    top_traps = trap_counts.most_common(20)
+    
+    for i in range(20):
+        concept = f"{top_concepts[i][0]} ({top_concepts[i][1]}x)" if i < len(top_concepts) else ""
+        trap = f"{top_traps[i][0]} ({top_traps[i][1]}x)" if i < len(top_traps) else ""
+        table.add_row(str(i+1), concept, trap)
+    
+    console.print(table)
 
     frequency_report = {
         "Top_50_Tested_Concepts": [f"{concept} (Tested {count} times)" for concept, count in concept_counts.most_common(50)],
@@ -106,7 +120,7 @@ def run() -> dict:
     with open(os.path.join(DATA_DIR, "test_frequency_map.json"), "w", encoding="utf-8") as f:
         json.dump(frequency_report, f, indent=4)
 
-    print("✅ SUCCESS! Master frequency leaderboard computed.")
+    console.print("[success]✅ SUCCESS! Master frequency leaderboard computed.[/success]")
     return frequency_report
 
 if __name__ == "__main__":

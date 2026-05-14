@@ -3,8 +3,24 @@ import yaml
 import tenacity
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from rich.console import Console
+from rich.theme import Theme
 
 load_dotenv()
+
+# Define a professional theme for the entire pipeline
+custom_theme = Theme({
+    "info": "cyan",
+    "warning": "yellow",
+    "error": "bold red",
+    "success": "bold green",
+    "phase": "bold magenta",
+    "topic": "bold white on blue",
+    "grade_a": "bold green",
+    "grade_f": "bold red"
+})
+
+console = Console(theme=custom_theme)
 
 class ModelFactory:
     """Centralized factory for creating pre-configured LLM and Embedding objects."""
@@ -12,6 +28,13 @@ class ModelFactory:
     def __init__(self, config_path="config/settings.yaml"):
         with open(config_path, 'r', encoding='utf-8') as f:
             self.config = yaml.safe_load(f)
+        
+        # Initialize Tracing if enabled and API key exists
+        if self.config['models'].get('tracing_enabled', False):
+            if os.getenv("LANGCHAIN_API_KEY"):
+                os.environ["LANGCHAIN_TRACING_V2"] = "true"
+                os.environ["LANGCHAIN_PROJECT"] = os.getenv("LANGCHAIN_PROJECT", "SciOly-Gen-v2")
+                # console.print("[info]LangSmith Tracing Enabled.[/info]")
             
     def get_config(self):
         return self.config

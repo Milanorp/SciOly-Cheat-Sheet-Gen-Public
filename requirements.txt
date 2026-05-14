@@ -27,3 +27,6 @@ markdown-it-py>=3.0.0
 tenacity>=8.3.0
 aiofiles>=23.2.1
 PyYAML>=6.0.0
+langsmith>=0.1.0
+rich>=13.7.0
+typer>=0.12.0
