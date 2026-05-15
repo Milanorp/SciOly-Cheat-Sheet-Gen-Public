@@ -82,11 +82,11 @@ def run(notes: dict) -> str:
 \setlength{{\parskip}}{{2pt}}
 \renewcommand{{\baselinestretch}}{{1.0}}
 
-\begin{document}
+\begin{{document}}
 \fontsize{{{content_font_size}}}{{{line_height}}}\selectfont
 """
     latex_template += combined_content
-    latex_template += "\n\\end{document}"
+    latex_template += "\n\\end{{document}}"
 
     try:
         with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
