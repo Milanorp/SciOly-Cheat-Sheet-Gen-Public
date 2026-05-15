@@ -1,7 +1,12 @@
 import os
+import sys
 import re
 import json
 import tenacity
+
+# Add the project root to sys.path to allow 'from src.X import Y' imports
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from langchain_text_splitters import MarkdownHeaderTextSplitter
 from langchain_experimental.text_splitter import SemanticChunker
 from langchain_chroma import Chroma

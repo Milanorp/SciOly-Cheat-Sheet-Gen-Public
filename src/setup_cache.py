@@ -1,5 +1,10 @@
 import os
+import sys
 import json
+
+# Add the project root to sys.path to allow 'from src.X import Y' imports
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types

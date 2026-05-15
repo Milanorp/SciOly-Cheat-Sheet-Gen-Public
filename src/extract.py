@@ -1,4 +1,9 @@
+import os
+import sys
 import pymupdf4llm
+
+# Add the project root to sys.path to allow imports if needed later
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # 1. Point the tool at your specific PDF
 pdf_path = r"sample_rules.pdf"
