@@ -19,7 +19,40 @@ async def run_pipeline():
     
     state = state_manager.load_state()
     config = factory.get_config()
+    data_dir = config['paths']['data_dir']
     
+    # --- STATE HYDRATION (ULTIMATE SAFETY NET) ---
+    # If the state file exists but is missing data (due to a crash), 
+    # try to recover from individual JSON files.
+    if state.current_phase > 0:
+        # Recover Event Name
+        if not state.event_name:
+             blueprint_path = os.path.join(data_dir, "cheat_sheet_blueprint.json")
+             if os.path.exists(blueprint_path):
+                 state.event_name = "Recovered Event" # Fallback, user can re-enter if needed
+        
+        # Recover Frequency Data
+        if not state.frequency_data:
+            freq_path = os.path.join(data_dir, "test_frequency_map.json")
+            if os.path.exists(freq_path):
+                with open(freq_path, 'r', encoding='utf-8') as f:
+                    state.frequency_data = json.load(f)
+
+        # Recover Blueprint
+        if not state.blueprint:
+            blueprint_path = os.path.join(data_dir, "cheat_sheet_blueprint.json")
+            if os.path.exists(blueprint_path):
+                with open(blueprint_path, 'r', encoding='utf-8') as f:
+                    state.blueprint = json.load(f)
+
+        # Recover Research Notes (The "30 Cent" Safety Net)
+        if not state.research_notes:
+            notes_path = os.path.join(data_dir, "raw_research_notes.json")
+            if os.path.exists(notes_path):
+                with open(notes_path, 'r', encoding='utf-8') as f:
+                    state.research_notes = json.load(f)
+                    console.print("[success]🛡️ Safety Net: Recovered research notes from disk![/success]")
+
     try:
         # --- PHASE 0: TEST CRUNCHER ---
         if state.current_phase <= 0:
