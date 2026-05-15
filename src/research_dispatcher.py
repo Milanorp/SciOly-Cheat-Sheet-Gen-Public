@@ -27,8 +27,6 @@ async def run(event_name: str, blueprint: dict, cache_info: dict, target_topics:
 
     async def process_topic(section_name, topic, generated_notes_lock, generated_notes, progress, task_id):
         async with semaphore:
-            # console.print(f"   [info][Start] Target:[/info] {topic[:50]}...")
-            
             expander_prompt = SystemMessage(content="""You are a Science Olympiad Technical Analyst.
             List specific variables, formulas, definitions, and traps for the provided topic. 5-6 bullet points.""")
             
@@ -51,12 +49,19 @@ async def run(event_name: str, blueprint: dict, cache_info: dict, target_topics:
                         generated_notes[section_name] = []
                     
                     existing_entry_idx = next((i for i, item in enumerate(generated_notes[section_name]) if item.get("original_target") == topic), None)
-                    new_entry = {"original_target": topic, "expanded_requirements": expanded_requirements, "content": final_content}
+                    
+                    # Create the note object - is_verified defaults to False for fresh research
+                    new_note = ResearchNote(
+                        original_target=topic,
+                        expanded_requirements=expanded_requirements,
+                        content=final_content,
+                        is_verified=False
+                    )
 
                     if existing_entry_idx is not None:
-                        generated_notes[section_name][existing_entry_idx] = new_entry
+                        generated_notes[section_name][existing_entry_idx] = new_note.model_dump()
                     else:
-                        generated_notes[section_name].append(new_entry)
+                        generated_notes[section_name].append(new_note.model_dump())
                     
                     async with aiofiles.open(NOTES_FILE, mode="w", encoding="utf-8") as f:
                         await f.write(json.dumps(generated_notes, indent=4))
@@ -106,8 +111,3 @@ async def run(event_name: str, blueprint: dict, cache_info: dict, target_topics:
 
     console.print(f"\n[success]✅ Phase 2 complete! Safely saved to '{NOTES_FILE}'[/success]")
     return generated_notes
-
-if __name__ == "__main__":
-    if os.name == 'nt':
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    asyncio.run(run("Science Olympiad", {}, {}))

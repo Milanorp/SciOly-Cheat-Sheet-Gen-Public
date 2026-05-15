@@ -29,6 +29,7 @@ class ResearchNote(BaseModel):
     original_target: str
     expanded_requirements: str
     content: str
+    is_verified: bool = False # Track if the auditor has passed this note
 
 class SectionResearch(BaseModel):
     """All research for a specific section."""
