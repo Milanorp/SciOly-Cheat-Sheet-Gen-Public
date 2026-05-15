@@ -53,7 +53,12 @@ class ModelFactory:
         }
         
         temperature = temp_map.get(purpose, 0.2)
-        model_name = self.config['models']['primary']
+        
+        # Routing: Use 'auditor' model for audit phase, 'standard' for everything else
+        if purpose == "auditor":
+            model_name = self.config['models']['auditor']
+        else:
+            model_name = self.config['models']['standard']
         
         return ChatGoogleGenerativeAI(
             model=model_name,

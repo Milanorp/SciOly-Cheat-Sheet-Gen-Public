@@ -34,7 +34,7 @@ def run() -> dict:
     print("\n2. Creating Context Cache (Valid for 24 hours)...")
     try:
         # 86400 seconds = 24 hours
-        model_name = config['models']['primary']
+        model_name = config['models']['standard']
         cache = client.caches.create(
             model=model_name,
             config=types.CreateCachedContentConfig(
