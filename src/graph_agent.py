@@ -21,7 +21,7 @@ config = factory.get_config()
 signal.signal(signal.SIGINT, signal.SIG_IGN)
 # -------------------------------------------
 
-print(f"Waking up {config['models']['primary']}...")
+print(f"Waking up {config['models']['standard']}...")
 llm = factory.get_llm(purpose="researcher")
 
 # =====================================================================
