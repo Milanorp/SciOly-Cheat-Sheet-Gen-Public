@@ -20,23 +20,30 @@ def run(event_name: str, frequency_data: dict) -> tuple[str, dict]:
     print(f"\nFetching official rules for '{event_name}' from the database...")
     official_rules_text = ""
     try:
-        embeddings = factory.get_embeddings()
-        vectorstore = Chroma(persist_directory=config['database']['db_path'], embedding_function=embeddings)
+        db_path = os.path.abspath(config['database']['db_path'])
+        if not os.path.exists(db_path):
+             print(f"⚠️ Warning: Database folder not found at {db_path}. Please run 'python src/build_db.py' first.")
         
+        embeddings = factory.get_embeddings()
+        vectorstore = Chroma(persist_directory=db_path, embedding_function=embeddings)
+        
+        # Try 1: Specific Filter
         try:
             rule_docs = vectorstore.similarity_search(event_name, k=5, filter={"Event": event_name.title()})
         except:
             rule_docs = []
             
+        # Try 2: Loose search (no filter) if Try 1 failed
         if not rule_docs:
-            rule_docs = vectorstore.similarity_search(f"{event_name} rules", k=5)
+            print("   > Specific filter failed. Trying a broad search...")
+            rule_docs = vectorstore.similarity_search(f"{event_name} rules", k=8)
             
         official_rules_text = "\n\n".join([doc.page_content for doc in rule_docs])
         if not official_rules_text.strip():
              official_rules_text = "No official rules found in the database. Rely on general knowledge for this event."
              print("⚠️ No rules found in DB. Relying on baseline knowledge.")
         else:
-             print("✅ Successfully retrieved official rules from database!")
+             print(f"✅ Successfully retrieved {len(rule_docs)} rule segments from database!")
     except Exception as e:
         print(f"⚠️ Warning: Could not load local database for rules. Details: {e}")
         official_rules_text = "Database not accessible. Rely on general knowledge."

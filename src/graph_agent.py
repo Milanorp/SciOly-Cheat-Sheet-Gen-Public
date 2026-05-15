@@ -58,14 +58,26 @@ def search_scioly_rules(search_query: str, event_metadata: str = None) -> str:
         queries = list(set(queries))
         
         all_docs = []
-        search_kwargs = {"k": 4} 
-        if event_metadata:
-            search_kwargs["filter"] = {"Event": event_metadata.title()}
-            print(f"        > Multi-Querying with Metadata: {event_metadata.title()}")
-            
+        
+        # Ensure path is absolute
+        db_path = os.path.abspath(config['database']['db_path'])
+        temp_vectorstore = Chroma(persist_directory=db_path, embedding_function=embeddings)
+
         for q in queries:
             print(f"        > Sub-query: {q[:50]}...")
-            docs = vectorstore.similarity_search(q, **search_kwargs)
+            
+            # Try 1: With Metadata Filter
+            docs = []
+            if event_metadata:
+                try:
+                    docs = temp_vectorstore.similarity_search(q, k=3, filter={"Event": event_metadata.title()})
+                except:
+                    docs = []
+            
+            # Try 2: Broad Search if filter failed or wasn't provided
+            if not docs:
+                docs = temp_vectorstore.similarity_search(q, k=4)
+                
             all_docs.extend(docs)
         
         # Step 2: Content Deduplication
