@@ -36,7 +36,11 @@ async def run(event_name: str, blueprint: dict, cache_info: dict, target_topics:
                 
                 system_prompt = SystemMessage(content=f"""You are an expert Science Olympiad AI Assistant building a dense cheat sheet for {event_name}.
                 STRICT WORKFLOW: 1. Rules search, 2. ArXiv, 3. Sniper tools.
-                Output: EXACTLY {config['research']['target_word_count']} words, bullet points, LaTeX math.""")
+                Output: EXACTLY {config['research']['target_word_count']} words, bullet points, LaTeX math.
+                DENSITY RULES: 
+                - Use $...$ for inline math. AVOID block math ($$...$$).
+                - Use \ce{{...}} for ALL chemical formulas (e.g., \ce{{H2O}}, \ce{{CO2}}, \ce{{Na+}}).
+                - Ensure units and constants are in math mode.""")
 
                 research_task = HumanMessage(content=f"TARGET: {topic}\nREQUIREMENTS: {expanded_requirements}")
                 initial_state = {"messages": [system_prompt, research_task]}

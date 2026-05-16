@@ -83,34 +83,33 @@ def run(notes: dict) -> str:
         synthesizer_prompt = SystemMessage(content=r"""You are an expert Science Olympiad LaTeX Editor.
         Synthesize the provided notes into a single section formatted for a professional LaTeX document.
         
-        STRICT RULES:
+        CRITICAL DENSITY RULES:
         1. RETAIN ALL FACTS: Do not lose any formulas, numbers, or key terms.
-        2. PURE CONTINUOUS PROSE: Write the entire synthesis as one single, massive, continuous block of text. ABSOLUTELY NO line breaks or new paragraphs.
+        2. PURE CONTINUOUS PROSE: Write the entire synthesis as one single, massive, continuous block of text. ABSOLUTELY NO line breaks (\n), paragraph breaks, or carriage returns.
         3. PERFECT GRAMMAR & PUNCTUATION: Every distinct fact must end with a period or semicolon.
-        4. LATEX MATH: You MUST use proper LaTeX math environments ($...$ for inline, $$...$$ for block). 
-        5. ESCAPE SPECIAL CHARACTERS: Ensure that special LaTeX characters like %, &, _, # are properly escaped (e.g., \% instead of %) UNLESS they are inside a math environment.
-        6. NO FORMATTING: Do not use bold or italics inside the text block. Use plain text only.
-        7. NO EMOJIS or FILLER.""")
+        4. LATEX MATH: Use $...$ for inline math. ABSOLUTELY FORBIDDEN: $$...$$, \begin{equation}, \begin{align}, or any display math environments. NEVER put a formula on its own line.
+        5. CHEMISTRY: Use the \ce{...} command from the mhchem package for ALL chemical formulas (e.g., \ce{H2O}, \ce{CO2}, \ce{Na2SO4.10H2O}, \ce{Ca^2+}).
+        6. UNIFORMITY: Ensure all units and scientific notation are in math mode (e.g., $1.5 \times 10^3$, $58^\circ\text{C}$, $\text{g/cm}^3$).
+        7. ESCAPE SPECIAL CHARACTERS: Ensure that special LaTeX characters like %, &, _, # are properly escaped (e.g., \% instead of %) UNLESS they are inside a math environment ($...$) or \ce{...}.
+        8. NO FORMATTING: Do not use bold or italics inside the text block. Use plain text only.
+        9. NO EMOJIS or FILLER.""")
         
         synthesis_req = HumanMessage(content=f"Synthesize these disjointed notes into a cohesive block of LaTeX-ready text:\n\n{raw_section_text}")
         
         try:
             synthesized_content = llm.invoke([synthesizer_prompt, synthesis_req]).content
             
-            # Programmatic failsafe: strip newlines
-            synthesized_content = synthesized_content.replace("\n", " ").strip()
+            # Programmatic failsafe: forcefully strip ALL newlines and extra spaces
+            synthesized_content = re.sub(r'\s+', ' ', synthesized_content).strip()
             
             # ESCAPE CHARACTERS that the AI might have missed
-            # We specifically target & and % which are common in headers and percentages
+            # We use a more careful approach here if possible, but for now simple replaces
+            # Note: \ce{} handles most chemistry-related chars, but & and % need care.
             synthesized_content = synthesized_content.replace("&", r"\&").replace("%", r"\%")
-            # For underscores, we only want to escape them if they aren't part of math. 
-            # But the AI usually puts them in math. Let's do a simple check.
-            # If an underscore has no $ nearby, it's probably a typo.
             
-            # Wrap section in a small bold header
-            # Escape the section name too!
+            # Wrap section in a small bold header, use space instead of double newline
             clean_section_name_escaped = clean_section_name.replace("&", r"\&").replace("%", r"\%")
-            section_latex = f"\\noindent \\textbf{{{clean_section_name_escaped}}}: {synthesized_content}\n\n"
+            section_latex = f"\\noindent \\textbf{{{clean_section_name_escaped}}}: {synthesized_content} "
             combined_content += section_latex
             
             total_words += len(synthesized_content.split())
@@ -118,7 +117,7 @@ def run(notes: dict) -> str:
             
         except Exception as e:
             print(f"   ❌ Error synthesizing section: {e}")
-            combined_content += f"\\noindent \\textbf{{{clean_section_name}}}: Error synthesizing this section.\n\n"
+            combined_content += f"\\noindent \\textbf{{{clean_section_name}}}: Error synthesizing this section. "
 
     # BUILD THE FULL LATEX DOCUMENT
     font_size = config['formatting']['font_size']
@@ -126,25 +125,44 @@ def run(notes: dict) -> str:
     line_height = config['formatting']['line_height']
     margins = config['formatting']['margins']
     paper_size = config['formatting']['paper_size']
+    single_column = config['formatting'].get('single_column', True)
+
+    column_start = ""
+    column_end = ""
+    if not single_column:
+        column_start = "\\begin{multicols*}{3}\n"
+        column_end = "\\end{multicols*}\n"
 
     # Use a safe template without f-string brace collisions for the static parts
     latex_template = fr"""
 \documentclass[{font_size}]{{extarticle}}
 \usepackage[utf8]{{inputenc}}
+\usepackage[T1]{{fontenc}}
 \usepackage[margin={margins}, {paper_size}]{{geometry}}
 \usepackage{{amsmath, amssymb, amsfonts}}
+\usepackage[version=4]{{mhchem}}
+\usepackage{{multicol}}
+\usepackage{{enumitem}}
 \usepackage{{microtype}}
 
 \pagestyle{{empty}}
 \setlength{{\parindent}}{{0pt}}
-\setlength{{\parskip}}{{2pt}}
-\renewcommand{{\baselinestretch}}{{1.0}}
+\setlength{{\parskip}}{{1pt}}
+\renewcommand{{\baselinestretch}}{{0.95}}
+
+\% Tighten math spacing for density
+\thickmuskip=1mu plus 1mu minus 1mu
+\medmuskip=1mu plus 1mu minus 1mu
+\thinmuskip=1mu
+\abovedisplayskip=1pt
+\belowdisplayskip=1pt
 
 \begin{{document}}
 \fontsize{{{content_font_size}}}{{{line_height}}}\selectfont
+{column_start}
 """
     latex_template += combined_content
-    latex_template += "\n\\end{document}" # FIXED: Single braces since this is NOT an f-string addition
+    latex_template += f"\n{column_end}\\end{document}"
 
     try:
         with open(OUTPUT_FILE, "w", encoding="utf-8") as f:

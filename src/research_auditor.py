@@ -27,7 +27,12 @@ def run(research_notes: dict) -> list[str]:
     skipped_count = 0
 
     auditor_prompt = SystemMessage(content="""You are a Senior Science Olympiad Technical Auditor.
-    Evaluate research notes for density, accuracy, LaTeX usage, and completeness.""")
+    Evaluate research notes for density, accuracy, LaTeX usage, and completeness.
+    STRICT AUDIT CRITERIA:
+    1. CHEMISTRY: All chemical formulas MUST use \ce{...}. Fail if they use $\text{...}$ or plain text.
+    2. MATH: Prefer inline math $...$. Fail if space-wasting block math $$...$$ is used.
+    3. DENSITY: Content must be fact-dense with zero filler words.
+    4. ACCURACY: Formulas and constants must be verified.""")
 
     for section_name, items in research_notes.items():
         console.print(f"\n[cyan]Auditing Section:[/cyan] {section_name}")
