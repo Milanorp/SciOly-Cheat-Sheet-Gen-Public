@@ -5,7 +5,7 @@
 # AI Models & Logic
 models:
   standard: "gemini-2.5-flash"   # Used for high-volume research and compilation
-  auditor: "gemini-2.5-pro"     # Used for high-intelligence quality control
+  auditor: "gemini-2.5-flash"     # Used for high-intelligence quality control
   embedding: "models/gemini-embedding-001"
   temperature_architect: 0.1
   temperature_researcher: 0.2
