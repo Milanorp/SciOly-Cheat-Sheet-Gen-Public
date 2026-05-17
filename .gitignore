@@ -32,3 +32,8 @@ extracted_rules.md
 Final_Cheat_Sheet.md
 Final_Cheat_Sheet_Printable.html
 Final_Cheat_Sheet.pdf
+Final_Cheat_Sheet.tex
+*.aux
+*.log
+*.out
+*.toc

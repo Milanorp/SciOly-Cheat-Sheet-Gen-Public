@@ -12,11 +12,13 @@ This project uses a professional-grade multi-agent pipeline powered by **Gemini 
 4.  **Phase 2: The Research Dispatcher** - Runs a parallel LangGraph agent armed with ArXiv and Web tools to draft research notes.
 5.  **Phase 2.5: The Research Auditor** - A senior scientist agent audits drafts for accuracy and technical depth, forcing re-research on failed topics.
 6.  **Phase 3: The AI Compiler** - Synthesizes notes into professional, LaTeX-ready source code.
-7.  **Phase 4: The Formatter** - Compiles a math-perfect, 1-column, high-density PDF.
+7. **Phase 4: The Formatter** - Compiles a math-perfect, high-density PDF with advanced typographic optimizations.
 
 ## 🏗️ System Architecture
 
-- **Centralized Config (`config/settings.yaml`):** Easily customize model types, target counts, word limits, and document formatting without touching code.
+- **Ultra-Density LaTeX Engine:** Uses `mhchem` for standardized chemistry, `microtype` for character spacing, and advanced math compression (inline `\scriptstyle`, `\tfrac` conversion) to maximize information per page.
+- **Centralized Config (`config/settings.yaml`):** Easily customize model types, target counts, word limits, and document formatting (fonts, margins, column logic).
+
 - **Global State Manager:** Robust checkpointing ensures the pipeline can resume from the exact target it stopped at.
 - **Model Factory:** Unified management of LLM instantiation and `tenacity` retry logic for extreme reliability.
 - **Type Safety:** Built with **Pydantic** models to ensure data integrity across all 6 phases.

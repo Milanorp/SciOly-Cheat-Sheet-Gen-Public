@@ -57,6 +57,17 @@ def run(notes: dict) -> str:
     config = factory.get_config()
     OUTPUT_FILE = config['paths']['output_tex']
 
+    # PRE-LOAD FORMATTING (Required for header synthesis)
+    font_size = config['formatting']['font_size']
+    content_font_size = config['formatting']['content_font_size']
+    line_height = config['formatting']['line_height']
+    margins = config['formatting']['margins']
+    paper_size = config['formatting']['paper_size']
+    single_column = config['formatting'].get('single_column', True)
+
+    # Clean font size for float calculations
+    clean_fs = float(content_font_size.replace("pt", "").strip())
+
     print("\n" + "="*60)
     print("PHASE 3: THE AI CHEAT SHEET COMPILER (LATEX RECOVERY)")
     print("="*60)
@@ -99,17 +110,28 @@ def run(notes: dict) -> str:
         try:
             synthesized_content = llm.invoke([synthesizer_prompt, synthesis_req]).content
             
-            # Programmatic failsafe: forcefully strip ALL newlines and extra spaces
+            # Collapse whitespace
             synthesized_content = re.sub(r'\s+', ' ', synthesized_content).strip()
-            
-            # ESCAPE CHARACTERS that the AI might have missed
-            # We use a more careful approach here if possible, but for now simple replaces
-            # Note: \ce{} handles most chemistry-related chars, but & and % need care.
+
+            # Convert tall inline fractions into compact inline fractions
+            synthesized_content = synthesized_content.replace(r"\frac", r"\tfrac")
+
+            # Compact common display-style operators
+            synthesized_content = synthesized_content.replace(r"\displaystyle", "")
+
+            # Escape dangerous characters
             synthesized_content = synthesized_content.replace("&", r"\&").replace("%", r"\%")
             
             # Wrap section in a small bold header, use space instead of double newline
+            # OPTIMIZED HEADER: prevents headers from inflating line height
             clean_section_name_escaped = clean_section_name.replace("&", r"\&").replace("%", r"\%")
-            section_latex = f"\\noindent \\textbf{{{clean_section_name_escaped}}}: {synthesized_content} "
+            section_latex = (
+                f"\\noindent "
+                f"{{\\bfseries\\fontsize{{{max(clean_fs-0.5, 4.5)}}}"
+                f"{{{max(clean_fs-0.5, 4.5)}}}\\selectfont "
+                f"{clean_section_name_escaped}:}} "
+                f"{synthesized_content} "
+            )
             combined_content += section_latex
             
             total_words += len(synthesized_content.split())
@@ -120,49 +142,87 @@ def run(notes: dict) -> str:
             combined_content += f"\\noindent \\textbf{{{clean_section_name}}}: Error synthesizing this section. "
 
     # BUILD THE FULL LATEX DOCUMENT
-    font_size = config['formatting']['font_size']
-    content_font_size = config['formatting']['content_font_size']
-    line_height = config['formatting']['line_height']
-    margins = config['formatting']['margins']
-    paper_size = config['formatting']['paper_size']
-    single_column = config['formatting'].get('single_column', True)
-
     column_start = ""
     column_end = ""
     if not single_column:
-        column_start = "\\begin{multicols*}{3}\n"
-        column_end = "\\end{multicols*}\n"
+        column_start = "\\begin{multicols}{3}\n"
+        column_end = "\\end{multicols}\n"
 
     # Use a safe template without f-string brace collisions for the static parts
     latex_template = fr"""
 \documentclass[{font_size}]{{extarticle}}
+
 \usepackage[utf8]{{inputenc}}
 \usepackage[T1]{{fontenc}}
-\usepackage[margin={margins}, {paper_size}]{{geometry}}
-\usepackage{{amsmath, amssymb, amsfonts}}
+
+\usepackage[
+    margin={margins},
+    {paper_size}
+]{{geometry}}
+
+\usepackage{{amsmath,amssymb,amsfonts}}
 \usepackage[version=4]{{mhchem}}
 \usepackage{{multicol}}
-\usepackage{{enumitem}}
 \usepackage{{microtype}}
+\usepackage{{enumitem}}
+\usepackage{{ragged2e}}
 
+% ---------- PAGE STYLE ----------
 \pagestyle{{empty}}
+\raggedbottom
+
+% ---------- PARAGRAPH CONTROL ----------
 \setlength{{\parindent}}{{0pt}}
-\setlength{{\parskip}}{{1pt}}
-\renewcommand{{\baselinestretch}}{{0.95}}
+\setlength{{\parskip}}{{0pt}}
 
-\% Tighten math spacing for density
-\thickmuskip=1mu plus 1mu minus 1mu
-\medmuskip=1mu plus 1mu minus 1mu
+% ---------- LINE SPACING ----------
+\renewcommand{{\baselinestretch}}{{0.92}}
+
+% Prevent equations from expanding lines
+\lineskip=0pt
+\lineskiplimit=0pt
+
+% ---------- INLINE MATH COMPRESSION ----------
+\everymath{{\scriptstyle}}
+\everydisplay{{\scriptstyle}}
+
+% Compact display spacing
+\abovedisplayskip=0pt
+\belowdisplayskip=0pt
+\abovedisplayshortskip=0pt
+\belowdisplayshortskip=0pt
+
+% Compact math spacing
 \thinmuskip=1mu
-\abovedisplayskip=1pt
-\belowdisplayskip=1pt
+\medmuskip=1mu plus 1mu minus 1mu
+\thickmuskip=1mu plus 1mu minus 1mu
 
+% ---------- CHEMISTRY COMPRESSION ----------
+\mhchemoptions{{textfontcommand=\scriptsize}}
+
+% ---------- MICROTYPOGRAPHY ----------
+\microtypesetup{{
+    protrusion=true,
+    expansion=true
+}}
+
+% ---------- DOCUMENT ----------
 \begin{{document}}
-\fontsize{{{content_font_size}}}{{{line_height}}}\selectfont
+
+\fontsize{{{content_font_size}}}{{{clean_fs + 0.3}}}\selectfont
+
 {column_start}
 """
     latex_template += combined_content
-    latex_template += f"\n{column_end}\\end{document}"
+
+    latex_template += rf"""
+
+\enlargethispage{{2\baselineskip}}
+
+{column_end}
+
+\end{{document}}
+"""
 
     try:
         with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
