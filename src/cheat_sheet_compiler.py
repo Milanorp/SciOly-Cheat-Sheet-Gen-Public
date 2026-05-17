@@ -6,53 +6,6 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from src.token_tracker import TokenTrackerCallback
 from src.factory import factory
 
-def latex_escape(text: str) -> str:
-    """
-    Escapes LaTeX special characters while preserving everything inside $...$ (inline math)
-    and $$...$$ (block math).
-    """
-    # Pattern to find math environments
-    # This matches $$...$$ or $...$
-    math_pattern = r'(\$\$.*?\$\$|\$.*?\$)'
-    
-    # Split the text by math environments
-    parts = re.split(math_pattern, text, flags=re.DOTALL)
-    
-    escaped_parts = []
-    for i, part in enumerate(parts):
-        # Even indices are non-math text, odd indices are math environments
-        if i % 2 == 0:
-            # Escape special LaTeX characters in non-math text
-            # Order matters: backslash first
-            part = part.replace('\\', r'\textbackslash{}')
-            part = part.replace('&', r'\&')
-            part = part.replace('%', r'\%')
-            part = part.replace('$', r'\$')
-            part = part.replace('#', r'\#')
-            part = part.replace('_', r'\_')
-            part = part.replace('{', r'\{')
-            part = part.replace('}', r'\}')
-            part = part.replace('~', r'\textasciitilde{}')
-            part = part.replace('^', r'\textasciicircum{}')
-            # Clean up the backslash placeholder
-            part = part.replace(r'\textbackslash{}', r'\\') # Wait, no. \textbackslash is safer.
-            # Actually, the AI uses \rightarrow and \Delta. 
-            # If I escape backslashes, I break the AI's LaTeX commands.
-            
-            # REVISION: The AI is supposed to be outputting LaTeX. 
-            # Let's ONLY escape the ones that are most likely to be typos in plain text: & and %
-            # and only if they aren't obviously part of a command.
-            # But the Auditor should have caught most.
-            
-            # Let's stick to a simpler set that covers 90% of crashes:
-            part = part.replace('&', r'\&')
-            part = part.replace('%', r'\%')
-            # part = part.replace('_', r'\_') # Many AI's forget this one
-            
-        escaped_parts.append(part)
-        
-    return "".join(escaped_parts)
-
 def run(notes: dict) -> str:
     config = factory.get_config()
     OUTPUT_FILE = config['paths']['output_tex']
