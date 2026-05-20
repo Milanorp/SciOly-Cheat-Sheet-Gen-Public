@@ -175,9 +175,41 @@ def submit_final_answer(draft_answer: str, academic_level: str) -> str:
     print("[✅ APPROVED] Answer scope is perfectly calibrated for SciOly.")
     return "APPROVED_FINAL_ANSWER: The answer is approved. You may now output this exact draft directly to the user."
 
+@tool
+def search_past_tests(search_query: str, event_metadata: str = None) -> str:
+    """
+    Searches through a database of actual past Science Olympiad tests. 
+    Use this to see EXACTLY how a topic has been questioned in the past, what constants were provided, and what level of detail was required.
+    """
+    print(f"\n[🔬 TOOL] Searching Past Tests for: '{search_query}'")
+    try:
+        db_path = os.path.abspath(config['database']['db_path'])
+        temp_vectorstore = Chroma(persist_directory=db_path, embedding_function=embeddings)
+        
+        # Filter for documents where Source_Type is "Past Test"
+        search_filter = {"Source_Type": "Past Test"}
+        if event_metadata:
+             # Try to narrow by event if possible, but tests are often mixed
+             pass 
+
+        docs = temp_vectorstore.similarity_search(search_query, k=5, filter=search_filter)
+        
+        if not docs:
+            return "No specific examples found in past tests for this query."
+
+        results = []
+        for doc in docs:
+            filename = doc.metadata.get("Filename", "Unknown Test")
+            results.append(f"--- From Test: {filename} ---\n{doc.page_content}\n")
+            
+        return "\n\n".join(results)
+    except Exception as e:
+        return f"Error searching past tests: {e}"
+
 tools = [
     reject_out_of_scope,
     search_scioly_rules,
+    search_past_tests,
     search_arxiv,
     request_search_clearance,
     search_scioly_wiki,

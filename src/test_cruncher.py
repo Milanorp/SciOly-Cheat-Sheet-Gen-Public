@@ -24,9 +24,12 @@ def run() -> dict:
     llm = factory.get_llm(purpose="researcher")
     structured_llm = llm.with_structured_output(ExtractedConcepts)
 
-    cruncher_prompt = SystemMessage(content="""You are a data-mining AI. 
-    Read the provided Science Olympiad test questions. Extract highly specific event topics being tested. 
-    Standardize the names of the concepts.""")
+    cruncher_prompt = SystemMessage(content="""You are a Science Olympiad Intelligence Officer. 
+    Read the provided test questions. 
+    1. Identify high-frequency technical concepts.
+    2. Identify specific 'High Impact Examples' (e.g. multi-step calculations, obscure constants, or unique word problems).
+    3. Identify common 'Test Traps' (unit conversions, similar-sounding terms).
+    Standardize the output names.""")
 
     if not os.path.exists(TESTS_FOLDER):
         os.makedirs(TESTS_FOLDER)
@@ -41,6 +44,7 @@ def run() -> dict:
 
     master_concept_list = []
     master_trap_list = []
+    master_example_list = []
     processed_files = []
 
     if os.path.exists(PROGRESS_FILE):
@@ -49,6 +53,7 @@ def run() -> dict:
             save_data = json.load(f)
             master_concept_list = save_data.get("concepts", [])
             master_trap_list = save_data.get("traps", [])
+            master_example_list = save_data.get("examples", [])
             processed_files = save_data.get("processed_files", [])
         
         files_left = len(test_files) - len(processed_files)
@@ -84,12 +89,14 @@ def run() -> dict:
             
             master_concept_list.extend(result.core_concepts)
             master_trap_list.extend(result.test_traps)
+            master_example_list.extend(result.high_impact_examples)
             processed_files.append(filename)
             
             with open(PROGRESS_FILE, "w", encoding="utf-8") as f:
                 json.dump({
                     "concepts": master_concept_list,
                     "traps": master_trap_list,
+                    "examples": master_example_list,
                     "processed_files": processed_files
                 }, f, indent=4)
                 
@@ -99,26 +106,31 @@ def run() -> dict:
     console.print("\n[info]All files processed! Tallying final frequencies...[/info]")
     concept_counts = Counter(master_concept_list)
     trap_counts = Counter(master_trap_list)
+    example_counts = Counter(master_example_list)
 
     # Use Rich Table for output
     table = Table(title="Test Frequency Leaderboard", show_header=True, header_style="bold cyan")
     table.add_column("Rank", style="dim", width=6)
     table.add_column("Top Core Concepts", style="bold white")
     table.add_column("Top Test Traps", style="yellow")
+    table.add_column("High Impact Examples", style="magenta")
     
     top_concepts = concept_counts.most_common(20)
     top_traps = trap_counts.most_common(20)
+    top_examples = example_counts.most_common(20)
     
     for i in range(20):
         concept = f"{top_concepts[i][0]} ({top_concepts[i][1]}x)" if i < len(top_concepts) else ""
         trap = f"{top_traps[i][0]} ({top_traps[i][1]}x)" if i < len(top_traps) else ""
-        table.add_row(str(i+1), concept, trap)
+        example = f"{top_examples[i][0]} ({top_examples[i][1]}x)" if i < len(top_examples) else ""
+        table.add_row(str(i+1), concept, trap, example)
     
     console.print(table)
 
     frequency_report = {
         "Top_50_Tested_Concepts": [f"{concept} (Tested {count} times)" for concept, count in concept_counts.most_common(50)],
-        "Top_20_Test_Traps": [f"{trap} (Seen {count} times)" for trap, count in trap_counts.most_common(20)]
+        "Top_20_Test_Traps": [f"{trap} (Seen {count} times)" for trap, count in trap_counts.most_common(20)],
+        "Top_20_High_Impact_Examples": [f"{ex} (Seen {count} times)" for ex, count in example_counts.most_common(20)]
     }
 
     with open(os.path.join(DATA_DIR, "test_frequency_map.json"), "w", encoding="utf-8") as f:

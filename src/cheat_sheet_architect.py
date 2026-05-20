@@ -74,10 +74,10 @@ def run(event_name: str, frequency_data: dict) -> tuple[str, dict]:
     I am providing you with two critical pieces of data:
 
     1. THE OFFICIAL RULES:
-    {official_rules_text}
+    {{official_rules_text}}
 
-    2. PAST TEST FREQUENCY LEADERBOARD:
-    {test_context}
+    2. PAST TEST FREQUENCY LEADERBOARD & EXAMPLES:
+    {{test_context}}
 
     THE MAX DENSITY MATH:
     We have space for exactly {config['research']['total_targets']} targets ({config['research']['sections_count']} sections of {config['research']['targets_per_section']} targets each). 
@@ -86,10 +86,11 @@ def run(event_name: str, frequency_data: dict) -> tuple[str, dict]:
 
     CRITICAL CONSTRAINTS & MANDATES:
     1. DYNAMIC SECTIONS: You MUST generate exactly {config['research']['sections_count']} sections. You must dynamically determine the {config['research']['sections_count']} most appropriate section titles based on the official rules.
-    2. EXHAUSTIVE RULE MANDATE (NO TRASH INFO): You MUST hunt down and ensure that every single specific item, formula, chemical, plant, animal, and environmental scenario explicitly listed in the Official Rules gets its own dedicated target. 
-    3. CROSS-REFERENCE MANDATE: You will receive a Past Test Frequency Leaderboard. You MUST filter it. Only use leaderboard topics that directly align with the specific event syllabus.
-    4. ELIMINATE FLUFF: DO NOT generate targets for general, broad, or high-level scientific concepts unless they are explicitly requested by the rules. 
-    5. HYPER-SPECIFICITY: The research agent needs exact instructions. 
+    2. EXHAUSTIVE RULE MANDATE: You MUST hunt down and ensure that every single specific item, formula, chemical, plant, animal, and environmental scenario explicitly listed in the Official Rules gets its own dedicated target. 
+    3. THE EXAMPLE MANDATE: You MUST look at the 'High Impact Examples' provided in the leaderboard. You MUST generate at least 5 targets specifically designed to help solve those exact difficult problem types. 
+    4. CROSS-REFERENCE MANDATE: You will receive a Past Test Frequency Leaderboard. You MUST filter it. Only use leaderboard topics that directly align with the specific event syllabus.
+    5. ELIMINATE FLUFF: DO NOT generate targets for general, broad, or high-level scientific concepts unless they are explicitly requested by the rules. 
+    6. HYPER-SPECIFICITY: The research agent needs exact instructions. 
     """
 
     architect_prompt = SystemMessage(content=prompt_text)

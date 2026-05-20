@@ -9,6 +9,7 @@ class ExtractedConcepts(BaseModel):
     """Output from Phase 0: Test Cruncher."""
     core_concepts: List[str] = Field(description="List of technical concepts tested.")
     test_traps: List[str] = Field(description="Common tricky wordings or unit mistakes.")
+    high_impact_examples: List[str] = Field(description="Specific multi-step problems or obscure facts that appeared in the tests.")
 
 class BlueprintSection(BaseModel):
     """A single section in the architect's plan."""

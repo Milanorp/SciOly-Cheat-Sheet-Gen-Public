@@ -35,7 +35,11 @@ async def run(event_name: str, blueprint: dict, cache_info: dict, target_topics:
                 expanded_requirements = expanded_response.content
                 
                 system_prompt = SystemMessage(content=f"""You are an expert Science Olympiad AI Assistant building a dense cheat sheet for {event_name}.
-                STRICT WORKFLOW: 1. Rules search, 2. ArXiv, 3. Sniper tools.
+                STRICT WORKFLOW: 
+                1. RULES: Use 'search_scioly_rules' to find the official constraints.
+                2. PAST TESTS: Use 'search_past_tests' to see exactly how this topic is questioned and what level of detail is needed.
+                3. THEORY: Use 'search_arxiv' or Sniper tools for advanced depth.
+
                 Output: EXACTLY {config['research']['target_word_count']} words, bullet points, LaTeX math.
                 DENSITY RULES: 
                 - Use $...$ for inline math. AVOID block math ($$...$$).
