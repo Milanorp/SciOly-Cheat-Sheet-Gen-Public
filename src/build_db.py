@@ -77,50 +77,25 @@ async def main():
         console.print("[error]❌ No documents found to index. Pipeline stopped.[/error]")
         return
 
+    # --- 2.5 FILTRATION (PRE-CHUNKING) ---
+    all_docs_to_index = [doc for doc in all_docs_to_index if doc.page_content.strip()]
+
     # --- 3. SEMANTIC CHUNKING ---
     console.print(f"\n[info]3. Performing Semantic Chunking on {len(all_docs_to_index)} segments...[/info]")
     text_splitter = SemanticChunker(embeddings)
     chunked_documents = text_splitter.split_documents(all_docs_to_index)
+    
+    # --- 3.5 FILTRATION (POST-CHUNKING) ---
+    # Ensure no empty chunks were created during splitting
+    chunked_documents = [doc for doc in chunked_documents if doc.page_content.strip()]
+    
     console.print(f"   ✅ Split into [success]{len(chunked_documents)}[/success] semantically coherent chunks.")
 
-    # --- 4. METADATA ENRICHMENT ---
-    console.print("\n[phase]4. Enriching chunks with AI Summary Tags...[/phase]")
-    CONCURRENCY_LIMIT = config['research']['concurrency_limit']
-    semaphore = asyncio.Semaphore(CONCURRENCY_LIMIT)
-
-    async def enrich_chunk(doc, progress, task_id):
-        async with semaphore:
-            try:
-                @factory.get_retry_decorator()
-                async def ainvoke_with_retry(prompt):
-                    return await llm.ainvoke(prompt)
-
-                src_type = doc.metadata.get("Source_Type", "Unknown")
-                prompt = f"Summarize this Science Olympiad {src_type} chunk in one short, descriptive sentence for indexing. Content: {doc.page_content[:1500]}"
-                summary_res = await ainvoke_with_retry(prompt)
-                doc.metadata["Summary"] = summary_res.content.strip()
-                progress.update(task_id, advance=1)
-            except Exception as e:
-                progress.update(task_id, advance=1)
-
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        TaskProgressColumn(),
-        MofNCompleteColumn(),
-        console=console
-    ) as progress:
-        enrich_task = progress.add_task("[cyan]Enriching...", total=len(chunked_documents))
-        tasks = [enrich_chunk(doc, progress, enrich_task) for doc in chunked_documents]
-        await asyncio.gather(*tasks)
-
-    # --- 5. WRITE TO DB ---
-    console.print("\n[phase]5. Writing to Vector Database (ChromaDB)[/phase]")
+    # --- 4. WRITE TO DB ---
+    console.print("\n[phase]4. Writing to Vector Database (ChromaDB)[/phase]")
     # Clear old DB if it exists to prevent duplication
     if os.path.exists(db_path):
         import shutil
-        # shutil.rmtree(db_path) # Risky, let's just append or inform
         console.print("[info]Appending to existing database...[/info]")
 
     vectorstore = Chroma(persist_directory=db_path, embedding_function=embeddings)
