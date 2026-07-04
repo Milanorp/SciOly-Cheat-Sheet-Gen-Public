@@ -2,15 +2,49 @@
 # SCIENCE OLYMPIAD AUTONOMOUS GENERATOR CONFIGURATION
 # =====================================================================
 
-# AI Models & Logic
+# -----------------------------------------------------------------------
+# AVAILABLE MODELS (Verified July 2026 - Vertex AI / Model Garden)
+# -----------------------------------------------------------------------
+# GOOGLE (via ChatVertexAI):
+#   gemini-2.5-pro           - Flagship reasoning model (confirmed working)
+#   gemini-2.5-flash         - Fast, cost-efficient (confirmed working)
+#   gemini-2.0-flash         - Lighter alternative
+#
+# ANTHROPIC (via ChatAnthropicVertex - requires langchain-anthropic):
+#   claude-sonnet-4-6        - High-volume agentic / complex tasks (current)
+#   claude-opus-4-7          - Highest capability Claude (current)
+#   claude-haiku-4-5         - Fast & cheap Claude tier
+#
+# META LLAMA (via ChatVertexAI - MaaS, requires Model Garden access):
+#   meta/llama-4-maverick-17b-128e-instruct-maas  - Multimodal MoE (newest)
+#   meta/llama-4-scout-17b-16e-instruct-maas       - Efficient multimodal
+#   meta/llama-3.3-70b-instruct-maas               - Reliable 70B
+#
+# MISTRAL (via ChatVertexAI - MaaS, requires Model Garden access):
+#   mistral-medium-3         - General purpose (25.05)
+#   mistral-small            - Fast & cheap (25.03)
+# -----------------------------------------------------------------------
+
+# AI Models & Per-Phase Assignments
 models:
-  standard: "gemini-2.5-flash"   # Used for high-volume research and compilation
-  auditor: "gemini-2.5-flash"     # Used for high-intelligence quality control
-  embedding: "models/gemini-embedding-001"
+  # --- Per-Phase Model Selection ---
+  # Set each phase to ANY model from the table above.
+  architect:  "gemini-3.1-pro-preview"      # Best planner - structured output & reasoning
+  researcher: "gemini-3.5-flash"    # Bulk parallel calls - fast & cheap
+  auditor:    "gemini-3.1-pro-preview"    # Auditor (use claude-sonnet-4-6 after enabling in Model Garden)
+  compiler:   "gemini-3.1-pro-preview"    # LaTeX synthesis - reliable & fast
+
+  # --- Embedding Model ---
+  # For free local embeddings, prefix with 'local/'. 
+  # Example: "local/BAAI/bge-small-en-v1.5"
+  embedding: "local/BAAI/bge-small-en-v1.5"
+
+  # --- Per-Phase Temperatures ---
   temperature_architect: 0.1
   temperature_researcher: 0.2
   temperature_auditor: 0.1
   temperature_compiler: 0.3
+
   tracing_enabled: true  # Toggle LangSmith tracing
 
 # Research Constraints
@@ -19,8 +53,11 @@ research:
   sections_count: 5
   targets_per_section: 10
   target_word_count: 140
+  enable_llm_tool_summarization: true
+
   concurrency_limit: 5
   max_audit_retries: 3
+  enable_context_compression: true
 
 # Vector Database (RAG)
 database:
@@ -31,8 +68,8 @@ database:
 # LaTeX Typesetting
 formatting:
   font_size: "9pt"
-  content_font_size: "7pt"
-  line_height: "8pt"
+  content_font_size: "5.5pt"
+  line_height: "6pt"
   margins: "0.15in"
   paper_size: "letterpaper"
   single_column: true

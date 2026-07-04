@@ -26,7 +26,7 @@ config = factory.get_config()
 signal.signal(signal.SIGINT, signal.SIG_IGN)
 # -------------------------------------------
 
-print(f"Waking up {config['models']['standard']}...")
+print(f"Waking up {config['models']['researcher']}...")
 llm = factory.get_llm(purpose="researcher")
 
 # =====================================================================
@@ -48,56 +48,80 @@ def reject_out_of_scope() -> str:
     print(f"\n[🛑 TOOL] Scope Violation Detected. Triggering Kill Switch.")
     return "SYSTEM ERROR: This request is outside my operational scope. Tell the user you can only assist with Science Olympiad research."
 
+# Headroom Context Compression Helper
+def compress_if_enabled(text: str, strategy: str = "general") -> str:
+    use_compression = config.get("research", {}).get("enable_context_compression", False)
+    if not use_compression:
+        return text
+    try:
+        from headroom import compress_content
+        if not text.strip():
+            return text
+        before_len = len(text)
+        compressed = compress_content(text, strategy=strategy)
+        after_len = len(compressed)
+        print(f"      [Headroom] Compressed: {before_len} -> {after_len} chars ({round((1 - after_len/before_len)*100, 1)}% saved)")
+        return compressed
+    except Exception:
+        return text
+
+# Intelligent LLM Tool Summarizer
+def summarize_tool_output(query: str, raw_text: str) -> str:
+    """Summarizes tool output using a cheap fast LLM to prevent context explosion."""
+    if not config.get("research", {}).get("enable_llm_tool_summarization", False):
+        return compress_if_enabled(raw_text, strategy="rag")
+        
+    if not raw_text or len(raw_text) < 500:
+        return compress_if_enabled(raw_text, strategy="rag")
+        
+    print(f"      [LLM Summarizer] Compressing massive context for: '{query}'...")
+    try:
+        summarizer_llm = factory.get_llm(purpose="researcher")
+        summarizer_llm.temperature = 0.0
+        
+        prompt = SystemMessage(content=f"""You are a data compressor. Extract ONLY the facts, numbers, and formulas highly relevant to the query: '{query}'.
+        Rules:
+        - Output a raw, dense bulleted list.
+        - Ignore fluff, introductions, or unrelated text.
+        - Keep it strictly under 150 words.
+        - DO NOT lose any technical constants, numbers, or specific chemical/physics formulas.""")
+        
+        res = summarizer_llm.invoke([prompt, HumanMessage(content=raw_text)])
+        compressed = res.content
+        print(f"      [LLM Summarizer] Reduced {len(raw_text)} chars to {len(compressed)} chars.")
+        return compressed
+    except Exception as e:
+        print(f"      [LLM Summarizer Error] {e}")
+        return compress_if_enabled(raw_text, strategy="rag")
+
 @tool
 def search_scioly_rules(search_query: str, event_metadata: str = None) -> str:
     """Searches the official Science Olympiad rulebook."""
-    print(f"\n[🔧 TOOL] Multi-Query Expanding: '{search_query}'")
+    print(f"\n[🔧 TOOL] Searching rules for: '{search_query}'")
     try:
-        # Step 1: Query Expansion
-        expansion_prompt = f"Generate 3 highly diverse search queries to find rules related to '{search_query}' for the Science Olympiad event: {event_metadata}. Focus on technical specifications, penalties, and allowed materials. Return ONLY the queries, one per line."
-        expansion_res = llm.invoke(expansion_prompt)
-        queries = [q.strip().strip('- ') for q in expansion_res.content.split('\n') if q.strip()]
-        queries.append(search_query) # Always include original
-        
-        # Deduplicate queries
-        queries = list(set(queries))
-        
-        all_docs = []
-        
         # Ensure path is absolute
         db_path = os.path.abspath(config['database']['db_path'])
         temp_vectorstore = Chroma(persist_directory=db_path, embedding_function=embeddings)
 
-        for q in queries:
-            print(f"        > Sub-query: {q[:50]}...")
-            
-            # Try 1: With Metadata Filter
-            docs = []
-            if event_metadata:
-                try:
-                    docs = temp_vectorstore.similarity_search(q, k=3, filter={"Event": event_metadata.title()})
-                except:
-                    docs = []
-            
-            # Try 2: Broad Search if filter failed or wasn't provided
-            if not docs:
-                docs = temp_vectorstore.similarity_search(q, k=4)
-                
-            all_docs.extend(docs)
+        # Direct search (avoiding query expansion LLM calls to reduce cost/tokens)
+        docs = []
+        if event_metadata:
+            try:
+                docs = temp_vectorstore.similarity_search(search_query, k=3, filter={"Event": event_metadata.title()})
+            except:
+                docs = []
         
-        # Step 2: Content Deduplication
-        unique_contents = {}
-        for doc in all_docs:
-            if doc.page_content not in unique_contents:
-                unique_contents[doc.page_content] = doc
+        if not docs:
+            docs = temp_vectorstore.similarity_search(search_query, k=3)
+            
+        if not docs:
+            return "No relevant rulebook sections found matching that query."
 
-        if not unique_contents:
-            return "No relevant rulebook sections found matching those queries."
-
-        return "\n\n---\n\n".join([doc.page_content for doc in unique_contents.values()])
+        raw_text = "\n\n---\n\n".join([doc.page_content for doc in docs])
+        return summarize_tool_output(search_query, raw_text)
         
     except Exception as e:
-        return f"Error during multi-query search: {e}"
+        return f"Error during search: {e}"
 
 @tool
 def search_arxiv(query: str) -> str:
@@ -124,7 +148,8 @@ def search_arxiv(query: str) -> str:
             results.append(f"Title: {paper.title}\nAuthors: {', '.join([a.name for a in paper.authors])}\nAbstract: {paper.summary}\n")
             
         if not results: return "No ArXiv papers found for that query. Try a shorter, broader keyword."
-        return "\n---\n".join(results)
+        raw_text = "\n---\n".join(results)
+        return summarize_tool_output(query, raw_text)
     except Exception as e:
         return f"Error searching ArXiv: {e}"
 
@@ -146,19 +171,22 @@ def request_search_clearance(scientific_domain: str) -> str:
 def search_scioly_wiki(query: str) -> str:
     """Use this tool FIRST for historical build parameters, event strategies, and past tests."""
     print(f"\n[📚 SNIPER TOOL] Searching SciOly Wiki for: '{query}'")
-    return ddg.run(f"{query} site:scioly.org/wiki")
+    raw = ddg.run(f"{query} site:scioly.org/wiki")
+    return summarize_tool_output(query, raw)
 
 @tool
 def search_academic_biology(query: str) -> str:
     """Use ONLY as a backup if ArXiv fails."""
     print(f"\n[🔬 SNIPER TOOL] Searching Medical/Bio Sites for: '{query}'")
-    return ddg.run(f"{query} site:ncbi.nlm.nih.gov OR site:.edu")
+    raw = ddg.run(f"{query} site:ncbi.nlm.nih.gov OR site:.edu")
+    return summarize_tool_output(query, raw)
 
 @tool
 def search_physics_and_engineering(query: str) -> str:
     """Use ONLY as a backup if ArXiv fails."""
     print(f"\n[SNIPER TOOL] Searching Engineering Sites for: '{query}'")
-    return ddg.run(f"{query} 'physics' OR 'engineering' site:.edu OR site:.gov")
+    raw = ddg.run(f"{query} 'physics' OR 'engineering' site:.edu OR site:.gov")
+    return summarize_tool_output(query, raw)
 
 @tool
 def submit_final_answer(draft_answer: str, academic_level: str) -> str:
@@ -189,10 +217,14 @@ def search_past_tests(search_query: str, event_metadata: str = None) -> str:
         # Filter for documents where Source_Type is "Past Test"
         search_filter = {"Source_Type": "Past Test"}
         if event_metadata:
-             # Try to narrow by event if possible, but tests are often mixed
-             pass 
+             search_filter = {
+                 "$and": [
+                     {"Source_Type": "Past Test"},
+                     {"Event": event_metadata.title()}
+                 ]
+             }
 
-        docs = temp_vectorstore.similarity_search(search_query, k=5, filter=search_filter)
+        docs = temp_vectorstore.similarity_search(search_query, k=2, filter=search_filter)
         
         if not docs:
             return "No specific examples found in past tests for this query."
@@ -202,7 +234,8 @@ def search_past_tests(search_query: str, event_metadata: str = None) -> str:
             filename = doc.metadata.get("Filename", "Unknown Test")
             results.append(f"--- From Test: {filename} ---\n{doc.page_content}\n")
             
-        return "\n\n".join(results)
+        raw_text = "\n\n".join(results)
+        return summarize_tool_output(search_query, raw_text)
     except Exception as e:
         return f"Error searching past tests: {e}"
 
@@ -221,28 +254,35 @@ tools = [
 # =====================================================================
 # 3. THE AI BRAIN & GRAPH SETUP
 # =====================================================================
-llm_with_tools = llm.bind_tools(tools)
 
-class AgentState(TypedDict):
-    messages: Annotated[list, add_messages]
+def build_app(cache_info=None):
+    # Retrieve LLM (potentially with cache)
+    graph_llm = factory.get_llm(purpose="researcher", cache_info=cache_info)
+    llm_with_tools = graph_llm.bind_tools(tools)
 
-def ai_node(state: AgentState):
-    print("\n[🧠 AI NODE] AI is analyzing tools and thinking...")
-    response = llm_with_tools.invoke(state["messages"])
-    return {"messages": [response]}
+    class AgentState(TypedDict):
+        messages: Annotated[list, add_messages]
 
-tool_node = ToolNode(tools) 
+    def ai_node(state: AgentState):
+        print("\n[🧠 AI NODE] AI is analyzing tools and thinking...")
+        response = llm_with_tools.invoke(state["messages"])
+        return {"messages": [response]}
 
-print("Building the Graph Blueprint...")
-workflow = StateGraph(AgentState)
-workflow.add_node("agent", ai_node)
-workflow.add_node("tools", tool_node)
+    tool_node = ToolNode(tools) 
 
-workflow.add_edge(START, "agent")
-workflow.add_conditional_edges("agent", tools_condition)
-workflow.add_edge("tools", "agent") 
+    print("Building the Graph Blueprint...")
+    workflow = StateGraph(AgentState)
+    workflow.add_node("agent", ai_node)
+    workflow.add_node("tools", tool_node)
 
-app = workflow.compile()
+    workflow.add_edge(START, "agent")
+    workflow.add_conditional_edges("agent", tools_condition)
+    workflow.add_edge("tools", "agent") 
+
+    return workflow.compile()
+
+# Global un-cached fallback for legacy imports
+app = build_app()
 
 # =====================================================================
 # 4. RUN THE DYNAMIC AGENT (MUTED FOR IMPORT)

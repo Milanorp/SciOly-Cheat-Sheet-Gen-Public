@@ -2,7 +2,8 @@
 langchain-core>=0.2.0
 langchain-community>=0.2.0
 langgraph>=0.1.0
-langchain-google-genai>=1.0.0
+langchain-google-vertexai>=2.0.0
+langchain-anthropic>=0.3.0
 langchain-chroma>=0.1.0
 langchain-text-splitters>=0.2.0
 langchain-experimental>=0.0.60
@@ -13,7 +14,7 @@ chromadb>=0.5.0
 # Tools & APIs
 arxiv>=2.1.0
 duckduckgo-search>=6.0.0
-google-genai>=0.1.0
+google-cloud-aiplatform>=1.60.0
 
 # Document Loaders
 pypdf>=4.2.0

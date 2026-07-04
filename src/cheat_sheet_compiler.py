@@ -6,6 +6,41 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from src.token_tracker import TokenTrackerCallback
 from src.factory import factory
 
+def parse_and_escape_latex(raw_text: str) -> str:
+    """
+    Parses tagged Markdown into perfectly escaped LaTeX.
+    Splits text by [MATH]...[/MATH] and [CHEM]...[/CHEM] tags.
+    Escapes plain text, converts markdown, and rebuilds the string.
+    """
+    pattern = re.compile(r'(\[MATH\].*?\[/MATH\]|\[CHEM\].*?\[/CHEM\])', flags=re.DOTALL)
+    parts = pattern.split(raw_text)
+    
+    escaped_parts = []
+    
+    for part in parts:
+        if part.startswith('[MATH]') and part.endswith('[/MATH]'):
+            content = part[6:-7].strip()
+            content = re.sub(r'\s+', ' ', content)
+            escaped_parts.append(f"${content}$")
+        elif part.startswith('[CHEM]') and part.endswith('[/CHEM]'):
+            content = part[6:-7].strip()
+            content = re.sub(r'\s+', ' ', content)
+            escaped_parts.append(f"$\\ce{{{content}}}$")
+        else:
+            text = part.replace('\\', '\\textbackslash{}')
+            text = text.replace('{', '\\{').replace('}', '\\}')
+            text = text.replace('%', '\\%').replace('$', '\\$')
+            text = text.replace('&', '\\&').replace('#', '\\#')
+            text = text.replace('_', '\\_').replace('^', '\\textasciicircum{}')
+            text = text.replace('~', '\\textasciitilde{}')
+            
+            text = re.sub(r'\*\*([^\*]+)\*\*', r'\\textbf{\1}', text)
+            text = re.sub(r'(?<!\*)\*([^\*]+)\*(?!\*)', r'\\textit{\1}', text)
+            
+            escaped_parts.append(text)
+            
+    return "".join(escaped_parts)
+
 def run(notes: dict) -> str:
     config = factory.get_config()
     OUTPUT_FILE = config['paths']['output_tex']
@@ -44,40 +79,50 @@ def run(notes: dict) -> str:
         for item in items:
             raw_section_text += f"{item['content']} "
             
-        synthesizer_prompt = SystemMessage(content=r"""You are an expert Science Olympiad LaTeX Editor.
-        Synthesize the provided notes into a single section formatted for a professional LaTeX document.
+        synthesizer_prompt = SystemMessage(content=r"""You are an expert Science Olympiad Notes Synthesizer.
+        Synthesize the provided notes into a single section of text.
         
-        CRITICAL DENSITY RULES:
+        CRITICAL FORMATTING RULES:
         1. RETAIN ALL FACTS: Do not lose any formulas, numbers, or key terms.
         2. PURE CONTINUOUS PROSE: Write the entire synthesis as one single, massive, continuous block of text. ABSOLUTELY NO line breaks (\n), paragraph breaks, or carriage returns.
         3. PERFECT GRAMMAR & PUNCTUATION: Every distinct fact must end with a period or semicolon.
-        4. LATEX MATH: Use $...$ for inline math. ABSOLUTELY FORBIDDEN: $$...$$, \begin{equation}, \begin{align}, or any display math environments. NEVER put a formula on its own line.
-        5. CHEMISTRY: Use the \ce{...} command from the mhchem package for ALL chemical formulas (e.g., \ce{H2O}, \ce{CO2}, \ce{Na2SO4.10H2O}, \ce{Ca^2+}).
-        6. UNIFORMITY: Ensure all units and scientific notation are in math mode (e.g., $1.5 \times 10^3$, $58^\circ\text{C}$, $\text{g/cm}^3$).
-        7. ESCAPE SPECIAL CHARACTERS: Ensure that special LaTeX characters like %, &, _, # are properly escaped (e.g., \% instead of %) UNLESS they are inside a math environment ($...$) or \ce{...}.
-        8. NO FORMATTING: Do not use bold or italics inside the text block. Use plain text only.
-        9. NO EMOJIS or FILLER.""")
+        4. USE MARKDOWN FOR TEXT: Write the text entirely in Markdown. If you need italics (e.g., for species names), use *italic*. Do NOT use any LaTeX commands (like \textit) for text.
+        5. EXPLICIT TAGS FOR MATH: For ALL mathematical formulas, units, variables, and scientific notation, wrap them EXACTLY in [MATH] ... [/MATH] tags. Do not use $...$ or $$...$$. Example: [MATH]1.5 \times 10^3[/MATH] or [MATH]\text{LD}_{50}[/MATH].
+        6. EXPLICIT TAGS FOR CHEMISTRY: For ALL chemical formulas and equations, wrap them EXACTLY in [CHEM] ... [/CHEM] tags. Do not use \ce{...}. Example: [CHEM]H2O[/CHEM] or [CHEM]Ca^2+[/CHEM].
+        7. NO MANUAL ESCAPING: Do not attempt to manually escape characters like %, &, or _ outside of your tagged blocks. The system will handle all escaping automatically. Write naturally!
+        8. NO EMOJIS or FILLER.""")
         
         synthesis_req = HumanMessage(content=f"Synthesize these disjointed notes into a cohesive block of LaTeX-ready text:\n\n{raw_section_text}")
         
         try:
-            synthesized_content = llm.invoke([synthesizer_prompt, synthesis_req]).content
+            raw_content = llm.invoke([synthesizer_prompt, synthesis_req]).content
             
-            # Collapse whitespace
-            synthesized_content = re.sub(r'\s+', ' ', synthesized_content).strip()
+            if isinstance(raw_content, list):
+                final_content = ""
+                for item in raw_content:
+                    if isinstance(item, dict) and "text" in item:
+                        final_content += item["text"]
+                    elif isinstance(item, str):
+                        final_content += item
+                raw_content = final_content
+            else:
+                raw_content = str(raw_content)
+                
+            # Collapse whitespace before parsing to ensure we don't break tags
+            raw_content = re.sub(r'\s+', ' ', raw_content).strip()
+            
+            # Run the parser to escape text and build the LaTeX blocks
+            synthesized_content = parse_and_escape_latex(raw_content)
 
             # Convert tall inline fractions into compact inline fractions
             synthesized_content = synthesized_content.replace(r"\frac", r"\tfrac")
 
             # Compact common display-style operators
             synthesized_content = synthesized_content.replace(r"\displaystyle", "")
-
-            # Escape dangerous characters
-            synthesized_content = synthesized_content.replace("&", r"\&").replace("%", r"\%")
             
             # Wrap section in a small bold header, use space instead of double newline
             # OPTIMIZED HEADER: prevents headers from inflating line height
-            clean_section_name_escaped = clean_section_name.replace("&", r"\&").replace("%", r"\%")
+            clean_section_name_escaped = clean_section_name.replace('&', r'\&').replace('%', r'\%')
             section_latex = (
                 f"\\noindent "
                 f"{{\\bfseries\\fontsize{{{max(clean_fs-0.5, 4.5)}}}"
@@ -107,6 +152,7 @@ def run(notes: dict) -> str:
 
 \usepackage[utf8]{{inputenc}}
 \usepackage[T1]{{fontenc}}
+\usepackage{{lmodern}}
 
 \usepackage[
     margin={margins},
@@ -178,14 +224,27 @@ def run(notes: dict) -> str:
 """
 
     try:
+        final_latex = latex_template.strip()
+        
+        # We no longer need to clean up double escapes or unescaped superscripts 
+        # since parse_and_escape_latex handles this deterministically.
+        
+        # Pull math/Greek symbols out of \text{...} blocks which cause silent PDF truncation in nonstopmode
+        for sym in ["mu", "theta", "sigma", "alpha", "beta", "delta", "Delta", "lambda", "epsilon", "pm", "approx", "ge", "le"]:
+            final_latex = re.sub(rf'\\text\{{([^}}]*)\\{sym}([^}}]*)\}}', rf'\\{sym}\\text{{\1\2}}', final_latex)
+        
         with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-            f.write(latex_template.strip())
+            f.write(final_latex)
         print(f"\n✅ SUCCESS! Final synthesized LaTeX cheat sheet saved to '{OUTPUT_FILE}'!")
         print(f"Approximate Word Count: {total_words} words.")
     except Exception as e:
          print(f"❌ Error saving final LaTeX file: {e}")
+         final_latex = latex_template.strip()
          
-    return latex_template.strip()
+    return final_latex
 
 if __name__ == "__main__":
-    run({})
+    notes_path = os.path.join(factory.get_config()['paths']['data_dir'], "raw_research_notes.json")
+    with open(notes_path, 'r', encoding='utf-8') as f:
+        notes = json.load(f)
+    run(notes)
