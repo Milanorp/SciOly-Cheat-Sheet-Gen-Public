@@ -52,7 +52,7 @@ research:
   total_targets: 50
   sections_count: 5
   targets_per_section: 10
-  target_word_count: 140
+  target_word_count: 90
   enable_llm_tool_summarization: true
 
   concurrency_limit: 5
@@ -78,5 +78,5 @@ formatting:
 paths:
   data_dir: "pipeline_data"
   raw_tests: "raw_tests"
-  output_tex: "Final_Cheat_Sheet.tex"
+  output_typ: "Final_Cheat_Sheet.typ"
   output_pdf: "Final_Cheat_Sheet.pdf"

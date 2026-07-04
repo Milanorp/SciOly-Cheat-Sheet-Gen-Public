@@ -6,11 +6,10 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from src.token_tracker import TokenTrackerCallback
 from src.factory import factory
 
-def parse_and_escape_latex(raw_text: str) -> str:
+def parse_and_escape_typst(raw_text: str) -> str:
     """
-    Parses tagged Markdown into perfectly escaped LaTeX.
+    Parses tagged Markdown into Typst syntax.
     Splits text by [MATH]...[/MATH] and [CHEM]...[/CHEM] tags.
-    Escapes plain text, converts markdown, and rebuilds the string.
     """
     pattern = re.compile(r'(\[MATH\].*?\[/MATH\]|\[CHEM\].*?\[/CHEM\])', flags=re.DOTALL)
     parts = pattern.split(raw_text)
@@ -25,17 +24,16 @@ def parse_and_escape_latex(raw_text: str) -> str:
         elif part.startswith('[CHEM]') and part.endswith('[/CHEM]'):
             content = part[6:-7].strip()
             content = re.sub(r'\s+', ' ', content)
-            escaped_parts.append(f"$\\ce{{{content}}}$")
+            escaped_parts.append(f"${content}$")
         else:
-            text = part.replace('\\', '\\textbackslash{}')
-            text = text.replace('{', '\\{').replace('}', '\\}')
-            text = text.replace('%', '\\%').replace('$', '\\$')
-            text = text.replace('&', '\\&').replace('#', '\\#')
-            text = text.replace('_', '\\_').replace('^', '\\textasciicircum{}')
-            text = text.replace('~', '\\textasciitilde{}')
+            text = part
+            # Escape Typst special characters that are not in math
+            text = text.replace('$', r'\$')
+            text = text.replace('#', r'\#')
             
-            text = re.sub(r'\*\*([^\*]+)\*\*', r'\\textbf{\1}', text)
-            text = re.sub(r'(?<!\*)\*([^\*]+)\*(?!\*)', r'\\textit{\1}', text)
+            # Convert Markdown to Typst formatting
+            text = re.sub(r'\*\*([^\*]+)\*\*', r'*\1*', text)
+            text = re.sub(r'(?<!\*)\*([^\*]+)\*(?!\*)', r'_\1_', text)
             
             escaped_parts.append(text)
             
@@ -43,7 +41,7 @@ def parse_and_escape_latex(raw_text: str) -> str:
 
 def run(notes: dict) -> str:
     config = factory.get_config()
-    OUTPUT_FILE = config['paths']['output_tex']
+    OUTPUT_FILE = config['paths']['output_typ']
 
     # PRE-LOAD FORMATTING (Required for header synthesis)
     font_size = config['formatting']['font_size']
@@ -57,7 +55,7 @@ def run(notes: dict) -> str:
     clean_fs = float(content_font_size.replace("pt", "").strip())
 
     print("\n" + "="*60)
-    print("PHASE 3: THE AI CHEAT SHEET COMPILER (LATEX RECOVERY)")
+    print("PHASE 3: THE AI CHEAT SHEET COMPILER (TYPST RECOVERY)")
     print("="*60)
 
     tracker = TokenTrackerCallback(script_name="3_cheat_sheet_compiler")
@@ -92,7 +90,7 @@ def run(notes: dict) -> str:
         7. NO MANUAL ESCAPING: Do not attempt to manually escape characters like %, &, or _ outside of your tagged blocks. The system will handle all escaping automatically. Write naturally!
         8. NO EMOJIS or FILLER.""")
         
-        synthesis_req = HumanMessage(content=f"Synthesize these disjointed notes into a cohesive block of LaTeX-ready text:\n\n{raw_section_text}")
+        synthesis_req = HumanMessage(content=f"Synthesize these disjointed notes into a cohesive block of Typst/Markdown-ready text:\n\n{raw_section_text}")
         
         try:
             raw_content = llm.invoke([synthesizer_prompt, synthesis_req]).content
@@ -111,137 +109,75 @@ def run(notes: dict) -> str:
             # Collapse whitespace before parsing to ensure we don't break tags
             raw_content = re.sub(r'\s+', ' ', raw_content).strip()
             
-            # Run the parser to escape text and build the LaTeX blocks
-            synthesized_content = parse_and_escape_latex(raw_content)
+            # Run the parser to escape text and build the Typst blocks
+            synthesized_content = parse_and_escape_typst(raw_content)
 
             # Convert tall inline fractions into compact inline fractions
-            synthesized_content = synthesized_content.replace(r"\frac", r"\tfrac")
+            synthesized_content = synthesized_content.replace(r"\frac", "/")
 
             # Compact common display-style operators
             synthesized_content = synthesized_content.replace(r"\displaystyle", "")
             
-            # Wrap section in a small bold header, use space instead of double newline
-            # OPTIMIZED HEADER: prevents headers from inflating line height
-            clean_section_name_escaped = clean_section_name.replace('&', r'\&').replace('%', r'\%')
-            section_latex = (
-                f"\\noindent "
-                f"{{\\bfseries\\fontsize{{{max(clean_fs-0.5, 4.5)}}}"
-                f"{{{max(clean_fs-0.5, 4.5)}}}\\selectfont "
-                f"{clean_section_name_escaped}:}} "
+            # Wrap section in a small bold header
+            clean_section_name_escaped = clean_section_name.replace('#', r'\#')
+            section_typst = (
+                f"*_{clean_section_name_escaped}:_* "
                 f"{synthesized_content} "
             )
-            combined_content += section_latex
+            combined_content += section_typst
             
             total_words += len(synthesized_content.split())
-            print("   ✅ Section compiled and LaTeX-formatted.")
+            print("   ✅ Section compiled and Typst-formatted.")
             
         except Exception as e:
             print(f"   ❌ Error synthesizing section: {e}")
-            combined_content += f"\\noindent \\textbf{{{clean_section_name}}}: Error synthesizing this section. "
+            combined_content += f"*_{clean_section_name}:_* Error synthesizing this section. "
 
-    # BUILD THE FULL LATEX DOCUMENT
-    column_start = ""
-    column_end = ""
-    if not single_column:
-        column_start = "\\begin{multicols}{3}\n"
-        column_end = "\\end{multicols}\n"
+    # BUILD THE FULL TYPST DOCUMENT
+    columns = 3 if not single_column else 1
+    
+    # Clean margins string like '0.2in'
+    margin_val = margins.strip()
+    
+    # Map LaTeX paper size to Typst paper size
+    typst_paper = "us-letter" if "letter" in paper_size.lower() else "a4"
 
-    # Use a safe template without f-string brace collisions for the static parts
-    latex_template = fr"""
-\documentclass[{font_size}]{{extarticle}}
+    typst_template = f"""
+#set page(
+  paper: "{typst_paper}",
+  margin: {margin_val},
+  columns: {columns}
+)
 
-\usepackage[utf8]{{inputenc}}
-\usepackage[T1]{{fontenc}}
-\usepackage{{lmodern}}
+#set text(
+  font: "Inter",
+  size: {content_font_size},
+  top-edge: "x-height",
+  bottom-edge: "baseline"
+)
 
-\usepackage[
-    margin={margins},
-    {paper_size}
-]{{geometry}}
+#set par(
+  justify: true,
+  leading: 0.15em,
+  spacing: 0.15em
+)
 
-\usepackage{{amsmath,amssymb,amsfonts}}
-\usepackage[version=4]{{mhchem}}
-\usepackage{{multicol}}
-\usepackage{{microtype}}
-\usepackage{{enumitem}}
-\usepackage{{ragged2e}}
-
-% ---------- PAGE STYLE ----------
-\pagestyle{{empty}}
-\raggedbottom
-
-% ---------- PARAGRAPH CONTROL ----------
-\setlength{{\parindent}}{{0pt}}
-\setlength{{\parskip}}{{0pt}}
-
-% ---------- LINE SPACING ----------
-\renewcommand{{\baselinestretch}}{{0.92}}
-
-% Prevent equations from expanding lines
-\lineskip=0pt
-\lineskiplimit=0pt
-
-% ---------- INLINE MATH COMPRESSION ----------
-\everymath{{\scriptstyle}}
-\everydisplay{{\scriptstyle}}
-
-% Compact display spacing
-\abovedisplayskip=0pt
-\belowdisplayskip=0pt
-\abovedisplayshortskip=0pt
-\belowdisplayshortskip=0pt
-
-% Compact math spacing
-\thinmuskip=1mu
-\medmuskip=1mu plus 1mu minus 1mu
-\thickmuskip=1mu plus 1mu minus 1mu
-
-% ---------- CHEMISTRY COMPRESSION ----------
-\mhchemoptions{{textfontcommand=\scriptsize}}
-
-% ---------- MICROTYPOGRAPHY ----------
-\microtypesetup{{
-    protrusion=true,
-    expansion=true
-}}
-
-% ---------- DOCUMENT ----------
-\begin{{document}}
-
-\fontsize{{{content_font_size}}}{{{clean_fs + 0.3}}}\selectfont
-
-{column_start}
+#show math.equation: set text(size: {content_font_size})
 """
-    latex_template += combined_content
-
-    latex_template += rf"""
-
-\enlargethispage{{2\baselineskip}}
-
-{column_end}
-
-\end{{document}}
-"""
+    typst_template += combined_content
 
     try:
-        final_latex = latex_template.strip()
-        
-        # We no longer need to clean up double escapes or unescaped superscripts 
-        # since parse_and_escape_latex handles this deterministically.
-        
-        # Pull math/Greek symbols out of \text{...} blocks which cause silent PDF truncation in nonstopmode
-        for sym in ["mu", "theta", "sigma", "alpha", "beta", "delta", "Delta", "lambda", "epsilon", "pm", "approx", "ge", "le"]:
-            final_latex = re.sub(rf'\\text\{{([^}}]*)\\{sym}([^}}]*)\}}', rf'\\{sym}\\text{{\1\2}}', final_latex)
+        final_typst = typst_template.strip()
         
         with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-            f.write(final_latex)
-        print(f"\n✅ SUCCESS! Final synthesized LaTeX cheat sheet saved to '{OUTPUT_FILE}'!")
+            f.write(final_typst)
+        print(f"\n✅ SUCCESS! Final synthesized Typst cheat sheet saved to '{OUTPUT_FILE}'!")
         print(f"Approximate Word Count: {total_words} words.")
     except Exception as e:
-         print(f"❌ Error saving final LaTeX file: {e}")
-         final_latex = latex_template.strip()
+         print(f"❌ Error saving final Typst file: {e}")
+         final_typst = typst_template.strip()
          
-    return final_latex
+    return final_typst
 
 if __name__ == "__main__":
     notes_path = os.path.join(factory.get_config()['paths']['data_dir'], "raw_research_notes.json")

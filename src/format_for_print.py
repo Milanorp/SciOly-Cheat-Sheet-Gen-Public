@@ -1,77 +1,45 @@
 import os
-import subprocess
-import shutil
+try:
+    import typst
+except ImportError:
+    typst = None
 from src.factory import factory
 
-def run(latex_content: str = None) -> None:
+def run(typst_content: str = None) -> None:
     config = factory.get_config()
-    INPUT_FILE = config['paths']['output_tex']
+    INPUT_FILE = config['paths']['output_typ']
     OUTPUT_PDF = config['paths']['output_pdf']
 
     print("\n" + "="*60)
-    print("PHASE 4: CHEAT SHEET FORMATTER (NATIVE LATEX)")
+    print("PHASE 4: CHEAT SHEET FORMATTER (TYPST)")
     print("="*60)
 
-    if not latex_content:
+    if not typst_content:
         try:
             with open(INPUT_FILE, "r", encoding="utf-8") as f:
-                latex_content = f.read()
+                typst_content = f.read()
         except FileNotFoundError:
             print(f"❌ Error: '{INPUT_FILE}' not found. Please run Phase 3 first.")
             return
 
-    # Check for LaTeX compilers
-    compilers = ["pdflatex", "tectonic", "xelatex"]
-    found_compiler = None
-    
-    for c in compilers:
-        if shutil.which(c):
-            found_compiler = c
-            break
+    if typst is None:
+        print("❌ Error: 'typst' python package is not installed.")
+        print("Please run 'pip install typst' to compile PDFs locally.")
+        return
 
-    if found_compiler:
-        print(f"🚀 Found LaTeX compiler: {found_compiler}. Attempting to compile...")
-        try:
-            # Run the compiler
-            if found_compiler == "pdflatex" or found_compiler == "xelatex":
-                process = subprocess.run(
-                    [found_compiler, "-interaction=nonstopmode", INPUT_FILE],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True
-                )
-            elif found_compiler == "tectonic":
-                process = subprocess.run(
-                    [found_compiler, INPUT_FILE],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True
-                )
+    print("🚀 Found Typst Python Compiler. Attempting to compile...")
+    try:
+        # Compile the Typst file into a PDF natively in Python!
+        typst.compile(INPUT_FILE, output=OUTPUT_PDF)
+        
+        if os.path.exists(OUTPUT_PDF):
+            print(f"✅ SUCCESS! Final professional PDF generated: '{OUTPUT_PDF}'")
+        else:
+            print("❌ Compilation failed silently. PDF not found.")
             
-            if os.path.exists(OUTPUT_PDF):
-                print(f"✅ SUCCESS! Final professional PDF generated: '{OUTPUT_PDF}'")
-                
-                # Cleanup auxiliary files
-                aux_extensions = [".aux", ".log", ".out", ".toc"]
-                for ext in aux_extensions:
-                    aux_file = INPUT_FILE.replace(".tex", ext)
-                    if os.path.exists(aux_file):
-                        os.remove(aux_file)
-            else:
-                print(f"❌ Compilation failed. Compiler output:\n{process.stdout}")
-                print("\n⚠️  Manual Step Required: Your LaTeX is perfect, but the local compiler failed.")
-                print(f"Please upload '{INPUT_FILE}' to Overleaf.com for a one-click perfect PDF.")
-
-        except Exception as e:
-            print(f"❌ Error during compilation: {e}")
-            print(f"⚠️  Manual Step Required: Please upload '{INPUT_FILE}' to Overleaf.com.")
-    else:
-        print("❌ No LaTeX compiler (pdflatex, tectonic, or xelatex) found on this system.")
-        print(f"✅ SUCCESS! Created professional LaTeX source: '{INPUT_FILE}'")
-        print("\n🚀 NEXT STEP: To get your professional PDF:")
-        print(f"1. Go to Overleaf.com")
-        print(f"2. Create a new project and upload '{INPUT_FILE}'")
-        print(f"3. Hit 'Recompile' for a math-perfect, high-density cheat sheet.")
+    except Exception as e:
+        print(f"❌ Error during Typst compilation: {e}")
+        print(f"⚠️  Please review '{INPUT_FILE}' for syntax errors.")
 
 if __name__ == "__main__":
     run()
