@@ -10,6 +10,17 @@ from src.factory import factory, console
 from src.models import ResearchNote
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, MofNCompleteColumn
 
+def _cast_to_string(content) -> str:
+    if isinstance(content, list):
+        final_str = ""
+        for item in content:
+            if isinstance(item, dict) and "text" in item:
+                final_str += item["text"]
+            elif isinstance(item, str):
+                final_str += item
+        return final_str
+    return str(content)
+
 async def run(event_name: str, blueprint: dict, cache_info: dict, target_topics: list = None) -> dict:
     config = factory.get_config()
     DATA_DIR = config['paths']['data_dir']
@@ -67,7 +78,7 @@ async def run(event_name: str, blueprint: dict, cache_info: dict, target_topics:
     console.print(f"[cyan]Running Researcher Agent on {len(all_tasks_data)} topics in batch...[/cyan]")
     agent_inputs = []
     for (sec, topic), res in zip(all_tasks_data, expansion_results):
-        expanded_requirements = res.content
+        expanded_requirements = _cast_to_string(res.content)
         system_prompt = SystemMessage(content=f"""You are an expert Science Olympiad AI Assistant building a dense cheat sheet for {event_name}.
         STRICT WORKFLOW: 
         1. RULES: Use 'search_scioly_rules' to find the official constraints.
@@ -93,18 +104,9 @@ async def run(event_name: str, blueprint: dict, cache_info: dict, target_topics:
     # 3. Save Results
     console.print(f"[cyan]Saving {len(all_tasks_data)} completed notes...[/cyan]")
     for (sec, topic), exp_res, agt_res in zip(all_tasks_data, expansion_results, agent_results):
-        expanded_requirements = exp_res.content
+        expanded_requirements = _cast_to_string(exp_res.content)
         
-        raw_content = agt_res["messages"][-1].content
-        if isinstance(raw_content, list):
-            final_content = ""
-            for item in raw_content:
-                if isinstance(item, dict) and "text" in item:
-                    final_content += item["text"]
-                elif isinstance(item, str):
-                    final_content += item
-        else:
-            final_content = str(raw_content)
+        raw_content = _cast_to_string(agt_res["messages"][-1].content)
 
         if sec not in generated_notes:
             generated_notes[sec] = []
@@ -114,7 +116,7 @@ async def run(event_name: str, blueprint: dict, cache_info: dict, target_topics:
         new_note = ResearchNote(
             original_target=topic,
             expanded_requirements=expanded_requirements,
-            content=final_content,
+            content=raw_content,
             is_verified=False
         )
 
