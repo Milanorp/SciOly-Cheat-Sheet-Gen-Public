@@ -6,24 +6,61 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from src.token_tracker import TokenTrackerCallback
 from src.factory import factory
 
+TYPST_MATH_KEYWORDS = {
+    'alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta', 'theta', 'iota', 'kappa', 'lambda', 'mu', 'nu', 'xi', 'omicron', 'pi', 'rho', 'sigma', 'tau', 'upsilon', 'phi', 'chi', 'psi', 'omega',
+    'Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta', 'Eta', 'Theta', 'Iota', 'Kappa', 'Lambda', 'Mu', 'Nu', 'Xi', 'Omicron', 'Pi', 'Rho', 'Sigma', 'Tau', 'Upsilon', 'Phi', 'Chi', 'Psi', 'Omega',
+    'sin', 'cos', 'tan', 'csc', 'sec', 'cot', 'arcsin', 'arccos', 'arctan', 'sinh', 'cosh', 'tanh', 'log', 'ln', 'lg', 'exp', 'max', 'min', 'lim', 'sup', 'inf', 'det', 'mod', 'Pr',
+    'in', 'ni', 'subset', 'supset', 'times', 'div', 'approx', 'prop', 'ell', 'degree', 'dot', 'sum', 'prod', 'int', 'oint'
+}
+
+def quote_math_words(text: str) -> str:
+    parts = re.split(r'("[^"]*")', text)
+    for i in range(len(parts)):
+        if i % 2 == 0:
+            parts[i] = re.sub(r'[a-zA-Z]{2,}', lambda m: m.group(0) if m.group(0) in TYPST_MATH_KEYWORDS else f'"{m.group(0)}"', parts[i])
+    return "".join(parts)
+
 def parse_and_escape_typst(raw_text: str) -> str:
     """
     Parses tagged Markdown into Typst syntax.
     Splits text by [MATH]...[/MATH] and [CHEM]...[/CHEM] tags.
     """
-    pattern = re.compile(r'(\[MATH\].*?\[/MATH\]|\[CHEM\].*?\[/CHEM\])', flags=re.DOTALL)
+    # Normalize all tags to $ to handle LLM hallucinations (e.g. mixed $ and [/MATH])
+    raw_text = raw_text.replace('[MATH]', '$').replace('[/MATH]', '$')
+    raw_text = raw_text.replace('[CHEM]', '$').replace('[/CHEM]', '$')
+    
+    # Now all math is wrapped in $...$
+    pattern = re.compile(r'(\$.*?\$)', flags=re.DOTALL)
     parts = pattern.split(raw_text)
     
     escaped_parts = []
     
     for part in parts:
-        if part.startswith('[MATH]') and part.endswith('[/MATH]'):
-            content = part[6:-7].strip()
+        if part.startswith('$') and part.endswith('$') and len(part) >= 2:
+            content = part[1:-1].strip()
             content = re.sub(r'\s+', ' ', content)
-            escaped_parts.append(f"${content}$")
-        elif part.startswith('[CHEM]') and part.endswith('[/CHEM]'):
-            content = part[6:-7].strip()
-            content = re.sub(r'\s+', ' ', content)
+            content = re.sub(r'\\text\{([^}]*)\}', r'"\1"', content) # convert \text{...} safely
+            content = content.replace('{', '(').replace('}', ')') # translate LaTeX {} grouping to Typst () grouping
+            content = content.replace('\\', '') # \alpha -> alpha
+            content = content.replace('!!!!/', '') # Fix W\!\!\!\!/ hack
+            
+            # Translate LaTeXisms to Typst
+            content = re.sub(r'\bcirc\b', 'degree', content)
+            content = re.sub(r'\bpropto\b', 'prop', content)
+            content = re.sub(r'\brightarrow\b', '->', content)
+            content = re.sub(r'\bleftarrow\b', '<-', content)
+            content = re.sub(r'\bleftrightarrow\b', '<->', content)
+            content = re.sub(r'\bRightarrow\b', '=>', content)
+            content = re.sub(r'\bLeftarrow\b', '<=', content)
+            content = re.sub(r'\bLeftrightarrow\b', '<=>', content)
+            content = re.sub(r'\bcdot\b', 'dot', content)
+
+            content = re.sub(r'/\s*$', '', content) # Remove trailing slashes
+            content = re.sub(r'_\s*$', '', content) # Remove trailing underscores
+            content = re.sub(r'\^\s*$', '', content) # Remove trailing carets
+            content = re.sub(r'^\s*\^', r'""^', content) # Fix leading carets
+            content = re.sub(r'^\s*_', r'""_', content) # Fix leading underscores
+            content = quote_math_words(content)
             escaped_parts.append(f"${content}$")
         else:
             text = part
@@ -85,8 +122,8 @@ def run(notes: dict) -> str:
         2. PURE CONTINUOUS PROSE: Write the entire synthesis as one single, massive, continuous block of text. ABSOLUTELY NO line breaks (\n), paragraph breaks, or carriage returns.
         3. PERFECT GRAMMAR & PUNCTUATION: Every distinct fact must end with a period or semicolon.
         4. USE MARKDOWN FOR TEXT: Write the text entirely in Markdown. If you need italics (e.g., for species names), use *italic*. Do NOT use any LaTeX commands (like \textit) for text.
-        5. EXPLICIT TAGS FOR MATH: For ALL mathematical formulas, units, variables, and scientific notation, wrap them EXACTLY in [MATH] ... [/MATH] tags. Do not use $...$ or $$...$$. Example: [MATH]1.5 \times 10^3[/MATH] or [MATH]\text{LD}_{50}[/MATH].
-        6. EXPLICIT TAGS FOR CHEMISTRY: For ALL chemical formulas and equations, wrap them EXACTLY in [CHEM] ... [/CHEM] tags. Do not use \ce{...}. Example: [CHEM]H2O[/CHEM] or [CHEM]Ca^2+[/CHEM].
+        5. EXPLICIT TAGS FOR MATH: For ALL mathematical formulas, units, variables, and scientific notation, wrap them EXACTLY in [MATH] ... [/MATH] tags. IMPORTANT: Use Typst math syntax inside these tags, NOT LaTeX. Do not use backslashes. For example, write [MATH]1.5 times 10^3[/MATH] or [MATH]"LD"_50[/MATH] or [MATH]alpha + beta[/MATH]. Do not use $...$.
+        6. EXPLICIT TAGS FOR CHEMISTRY: For ALL chemical formulas and equations, wrap them EXACTLY in [CHEM] ... [/CHEM] tags. Use Typst math syntax. Example: [CHEM]H_2 O[/CHEM] or [CHEM]Ca^(2+)[/CHEM].
         7. NO MANUAL ESCAPING: Do not attempt to manually escape characters like %, &, or _ outside of your tagged blocks. The system will handle all escaping automatically. Write naturally!
         8. NO EMOJIS or FILLER.""")
         
