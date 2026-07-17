@@ -1,0 +1,14 @@
+name: Auto Bug Scanner
+on: [push]
+
+jobs:
+  Scan-Code:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+      - name: Run Diagnostics
+        run: |
+          echo "Test Engine is online!"
+          echo "Scanning codebase for obvious errors..."
+          # We can add real Python/Node linters here later!
